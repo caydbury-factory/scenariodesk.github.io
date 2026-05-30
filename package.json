@@ -1,0 +1,10 @@
+{
+  "name": "the-scenario-department",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 4173",
+    "build": "node --check src/app.js && python3 - <<'PY'\nfrom pathlib import Path\nfor path in ['index.html','src/styles.css']:\n    text=Path(path).read_text()\n    assert text.strip(), f'{path} is empty'\nprint('static build checks passed')\nPY"
+  }
+}
