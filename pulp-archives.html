@@ -1,0 +1,110 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pulp Archives | The Scenario Department</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="archives-page">
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Front Gate</a>
+      <a href="scenario-desk.html">Scenario Desk</a>
+      <a class="current" href="pulp-archives.html">Pulp Archives</a>
+      <a href="submit-property.html">Submit Property</a>
+      <a href="photoplay-rules.html">Photoplay Rules</a>
+      <a href="writers-room.html?property=dangerous-kisses">Writers' Room</a>
+      <a href="treatment-room.html">Treatment Room</a>
+      <a href="carstairs-office.html">Carstairs' Office</a>
+    </nav>
+    <header class="inner-hero">
+      <p class="eyebrow">Research Library and Magazine Mine</p>
+      <h1>Pulp Archives</h1>
+      <p class="lede">Select a magazine issue from the archive shelves, inspect its year and PDF record, then send the issue through the studio mining desk.</p>
+    </header>
+    <main>
+      <section class="band archives archive-workroom">
+        <div class="section-head">
+          <p class="eyebrow">Drive Archive Structure</p>
+          <h2>Magazine to Year to Issue PDF</h2>
+          <p>Magazine runs are cataloged as studio holdings. Choose an issue below and the miner will prepare story cards from that exact source.</p>
+        </div>
+
+        <div class="archive-stats">
+          <div><strong>2,143</strong><span>Issue PDFs</span></div>
+          <div><strong>18</strong><span>Magazine Runs</span></div>
+          <div><strong>41,280</strong><span>Detected Stories</span></div>
+          <div><strong>312</strong><span>High-Promise Leads</span></div>
+        </div>
+
+        <div class="archive-console">
+          <aside class="archive-shelves" aria-label="Archive holdings">
+            <button class="archive-issue is-selected" type="button" data-issue="argosy">
+              <span>Argosy All-Story Weekly</span>
+              <small>1928 / May 12 / PDF indexed</small>
+            </button>
+            <button class="archive-issue" type="button" data-issue="adventure">
+              <span>Adventure</span>
+              <small>1931 / February / PDF ready</small>
+            </button>
+            <button class="archive-issue" type="button" data-issue="detective">
+              <span>Detective Story Magazine</span>
+              <small>1927 / July 9 / OCR pending</small>
+            </button>
+            <button class="archive-issue" type="button" data-issue="love">
+              <span>Love Story Magazine</span>
+              <small>1930 / October / PDF ready</small>
+            </button>
+          </aside>
+
+          <section class="selected-issue" aria-live="polite">
+            <p class="eyebrow">Selected Issue</p>
+            <h2 id="issue-title">Argosy All-Story Weekly</h2>
+            <dl>
+              <dt>Year</dt><dd id="issue-year">1928</dd>
+              <dt>Issue</dt><dd id="issue-number">May 12</dd>
+              <dt>PDF</dt><dd id="issue-pdf">argosy-allstory-1928-05-12.pdf</dd>
+              <dt>Status</dt><dd id="issue-status">Indexed and ready for mining</dd>
+            </dl>
+            <div class="workflow workflow--compact">
+              <span>Select Issue</span><span>Extract Text</span><span>Detect Stories</span><span>Generate Cards</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="miner-desk" aria-labelledby="miner-title">
+          <div>
+            <p class="eyebrow">Magazine Miner</p>
+            <h2 id="miner-title">Mine the selected issue for motion picture material.</h2>
+            <p>The miner reads the issue as a scenario editor would: hook first, then visible action, protagonist desire, spectacle, moral pressure, and suitability for treatment.</p>
+          </div>
+          <form class="miner-form">
+            <label>Mining Criteria
+              <textarea>Find stories with a clear protagonist, visible conflict, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
+            </label>
+            <button type="button" id="mine-issue">Mine Selected Issue</button>
+          </form>
+        </section>
+
+        <div class="story-cards story-cards--archive" id="archive-results">
+          <article class="report">
+            <p class="stamp stamp--green">High Potential</p>
+            <h3>The Lantern at Bitter Creek</h3>
+            <dl><dt>Author</dt><dd>Marian Vale</dd><dt>Source</dt><dd>Argosy All-Story Weekly, May 12, 1928</dd></dl>
+            <p>A disgraced surveyor escorts a widow across a flood-threatened mountain pass and discovers the railroad fraud that ruined them both.</p>
+            <a class="button button--small" href="submit-property.html">Submit Property</a>
+          </article>
+          <article class="report">
+            <p class="stamp">Needs Conference</p>
+            <h3>The Glass Duchess</h3>
+            <dl><dt>Author</dt><dd>E. L. Markham</dd><dt>Source</dt><dd>Love Story Magazine, October 1930</dd></dl>
+            <p>A society impostor wins a title, loses a sister, and must choose between reputation and confession on opening night.</p>
+            <a class="button button--small" href="submit-property.html">Submit Property</a>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <script src="script.js"></script>
+  </body>
+</html>

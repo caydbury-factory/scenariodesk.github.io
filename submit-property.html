@@ -1,0 +1,74 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Submit Property | The Scenario Department</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="submit-page">
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Front Gate</a>
+      <a href="scenario-desk.html">Scenario Desk</a>
+      <a href="pulp-archives.html">Pulp Archives</a>
+      <a class="current" href="submit-property.html">Submit Property</a>
+      <a href="photoplay-rules.html">Photoplay Rules</a>
+      <a href="writers-room.html?property=dangerous-kisses">Writers' Room</a>
+      <a href="treatment-room.html">Treatment Room</a>
+      <a href="carstairs-office.html">Carstairs' Office</a>
+    </nav>
+    <header class="inner-hero">
+      <p class="eyebrow">Form No. 42-B</p>
+      <h1>Submit Property</h1>
+      <p class="lede">An authentic studio story-submission form for incoming motion picture material.</p>
+    </header>
+    <main>
+      <section class="band submit">
+        <form class="studio-form submission-form">
+          <div class="form-letterhead">
+            <p>Department of Scenarios</p>
+            <span>Property Submission Form - All Fields To Be Completed In Full</span>
+          </div>
+
+          <label>Title of Property *
+            <input placeholder="Enter the title of the manuscript..." />
+          </label>
+
+          <label>Nature of Material *
+            <select>
+              <option>-- Select Type of Source --</option>
+              <option>Pulp Magazine Story</option>
+              <option>Novel</option>
+              <option>Stage Play</option>
+              <option>Newspaper Serial</option>
+              <option>Original Premise</option>
+              <option>Photoplay</option>
+              <option>True Incident</option>
+            </select>
+          </label>
+
+          <label>Logline / Brief Synopsis
+            <textarea class="short-textarea" placeholder="In no more than three sentences, describe the heart of this property..."></textarea>
+          </label>
+
+          <label class="upload-box">Manuscript - Upload Document (TXT, PDF Text)
+            <input id="manuscript-file" type="file" accept=".txt,.pdf,text/plain,application/pdf" />
+            <span id="upload-label">Place manuscript here - or paste text below</span>
+          </label>
+
+          <label>Manuscript Text (Paste or Type Directly)
+            <textarea class="manuscript-text" placeholder="Paste or type the full text of the manuscript here..."></textarea>
+          </label>
+
+          <label>Notes to the Scenario Department
+            <textarea class="short-textarea" placeholder="Any particular concerns, strengths, or directions you wish the writers to consider..."></textarea>
+          </label>
+
+          <button type="button">Submit This Property to the Scenario Department -></button>
+        </form>
+      </section>
+    </main>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <script src="script.js"></script>
+  </body>
+</html>

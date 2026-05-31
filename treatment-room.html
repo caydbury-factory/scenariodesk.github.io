@@ -1,0 +1,90 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Treatment Room | The Scenario Department</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="treatment-page">
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Front Gate</a>
+      <a href="scenario-desk.html">Scenario Desk</a>
+      <a href="pulp-archives.html">Pulp Archives</a>
+      <a href="submit-property.html">Submit Property</a>
+      <a href="photoplay-rules.html">Photoplay Rules</a>
+      <a href="writers-room.html?property=dangerous-kisses">Writers' Room</a>
+      <a class="current" href="treatment-room.html">Treatment Room</a>
+      <a href="carstairs-office.html">Carstairs' Office</a>
+    </nav>
+    <header class="inner-hero">
+      <p class="eyebrow">Continuity and Treatment Department</p>
+      <h1>Treatment Room</h1>
+      <p class="lede">Treatment process: assign photoplaywrights and prepare the official photoplay treatment.</p>
+    </header>
+    <main>
+      <section class="band treatment treatment-room">
+        <article class="treatment-assignment">
+          <div class="treatment-property-head">
+            <p class="eyebrow">Treatment Room - SPC-001</p>
+            <h2 id="treatment-title">Dangerous Kisses</h2>
+            <p id="treatment-logline">A young lady's life is saved by a mysterious man, igniting the flames of forbidden love just before a grand Mediterranean cruise.</p>
+          </div>
+
+          <div class="form-letterhead">
+            <p>Select Treatment Writers</p>
+            <span>Choose two to four photoplaywrights to prepare the treatment</span>
+          </div>
+
+          <p>Select the writers best suited to this property. Each brings their department's strength to the treatment.</p>
+
+          <div class="treatment-writers" id="treatment-writers">
+            <label><input type="checkbox" value="Miss Jeanette Marchmont" data-role="Structure & Architecture" /> <span><strong>Miss Jeanette Marchmont</strong>Structure & Architecture</span></label>
+            <label><input type="checkbox" value="Miss Frances Fairchild" data-role="Human Interest" /> <span><strong>Miss Frances Fairchild</strong>Human Interest</span></label>
+            <label><input type="checkbox" value="Miss Clara Ashcombe" data-role="Society & Character" /> <span><strong>Miss Clara Ashcombe</strong>Society & Character</span></label>
+            <label><input type="checkbox" value="Mr. William Carrington" data-role="Moral Drama" /> <span><strong>Mr. William Carrington</strong>Moral Drama</span></label>
+            <label><input type="checkbox" value="Miss Anita Vane" data-role="Wit & Entertainment" /> <span><strong>Miss Anita Vane</strong>Wit & Entertainment</span></label>
+            <label><input type="checkbox" value="Miss June Sterling" data-role="Romance & Destiny" /> <span><strong>Miss June Sterling</strong>Romance & Destiny</span></label>
+            <label><input type="checkbox" value="Miss Beulah Thorncroft" data-role="Historical Pressure & Stakes" /> <span><strong>Miss Beulah Thorncroft</strong>Historical Pressure & Stakes</span></label>
+          </div>
+
+          <p class="selected-count" id="selected-count">Selected: 0/4 writers</p>
+          <button type="button" id="prepare-treatment" disabled>Prepare the Official Treatment</button>
+        </article>
+
+        <article class="official-treatment" id="official-treatment" hidden>
+          <div class="form-letterhead">
+            <p>Official Photoplay Treatment</p>
+            <span>Prepared for the Scenario Department</span>
+          </div>
+
+          <dl class="treatment-ledger">
+            <dt>Title</dt><dd id="treatment-doc-title">Dangerous Kisses</dd>
+            <dt>Author</dt><dd id="treatment-doc-author">Prepared by the assigned photoplaywrights</dd>
+            <dt>Type</dt><dd id="treatment-doc-type">Society Drama</dd>
+            <dt>Footage / Reels</dt><dd id="treatment-doc-reels">The Standard Feature - 5 reels, 5,000 feet, 55 to 75 minutes</dd>
+            <dt>Theme</dt><dd id="treatment-doc-theme">A woman trapped by class discovers that freedom requires public courage, not secret longing.</dd>
+          </dl>
+
+          <section>
+            <p class="eyebrow">Dramatis Personae</p>
+            <div class="treatment-cards" id="treatment-cast"></div>
+          </section>
+
+          <section>
+            <p class="eyebrow">Synopsis / Narrative Breakdown</p>
+            <div class="reel-breakdown" id="reel-breakdown"></div>
+          </section>
+
+          <div class="treatment-signoff">
+            <p class="eyebrow">Writing Room Countersignature</p>
+            <p>Approved for executive review by Miss Jeanette Marchmont, Chief of the Writing Room.</p>
+            <a class="button" href="carstairs-office.html">Send Upstairs to Mr. Carstairs</a>
+          </div>
+        </article>
+      </section>
+    </main>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <script src="script.js"></script>
+  </body>
+</html>

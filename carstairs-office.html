@@ -1,0 +1,82 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Carstairs' Office | The Scenario Department</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="carstairs-page">
+    <nav class="nav" aria-label="Primary">
+      <a href="index.html">Front Gate</a>
+      <a href="scenario-desk.html">Scenario Desk</a>
+      <a href="pulp-archives.html">Pulp Archives</a>
+      <a href="submit-property.html">Submit Property</a>
+      <a href="photoplay-rules.html">Photoplay Rules</a>
+      <a href="writers-room.html?property=dangerous-kisses">Writers' Room</a>
+      <a href="treatment-room.html">Treatment Room</a>
+      <a class="current" href="carstairs-office.html">Carstairs' Office</a>
+    </nav>
+    <header class="inner-hero carstairs-hero">
+      <p class="eyebrow">Top Floor, Private Office</p>
+      <h1>Carstairs' Office</h1>
+      <p class="lede">Every treatment eventually lands on his desk, where stars, sets, money, and audience devotion are weighed in one terrible silence.</p>
+    </header>
+    <main class="carstairs carstairs--page">
+      <section class="office carstairs-office">
+        <p class="eyebrow">Top Floor, Private Office</p>
+        <h1>R. X. Carstairs-D'Assine</h1>
+        <p class="lede">The Chocolate Box Photoplay Studios, Director-General</p>
+
+        <article class="carstairs-desk">
+          <div>
+            <p class="eyebrow">Treatment on the Desk</p>
+            <h2 id="carstairs-title">Dangerous Kisses</h2>
+            <p id="carstairs-logline">A young lady's life is saved by a mysterious man, igniting the flames of forbidden love just before a grand Mediterranean cruise.</p>
+          </div>
+          <button type="button" id="evaluate-treatment">Evaluate the Treatment</button>
+        </article>
+
+        <article class="carstairs-memo" id="carstairs-memo" hidden>
+          <p class="eyebrow">Private Executive Memorandum</p>
+          <h2 id="carstairs-memo-title">Do not waste my time.</h2>
+          <p id="carstairs-opinion"></p>
+        </article>
+
+        <article class="carstairs-verdict" id="carstairs-verdict" hidden>
+          <p class="eyebrow">Final Executive Disposition</p>
+          <p class="final-stamp final-stamp--treatments" id="carstairs-stamp">Greenlight</p>
+          <blockquote id="carstairs-quote">Give it stars, give it glass, give it a moonlit deck big enough for every shopgirl in America to dream upon.</blockquote>
+          <cite>- R. X. Carstairs-D'Assine</cite>
+          <a class="button" id="carstairs-action" href="scenario-desk.html">Return to the Scenario Desk</a>
+        </article>
+
+        <article class="carstairs-rewrite" id="carstairs-rewrite" hidden>
+          <p class="eyebrow">Executive Rewrite Order</p>
+          <h2>One return upstairs. No second mercy.</h2>
+          <p>Carstairs will look at the material once more if the weakness is repaired within the ordered time.</p>
+
+          <div class="countdown countdown--reconference">
+            <span>Executive Return Deadline</span>
+            <strong id="carstairs-timer">30:00</strong>
+          </div>
+
+          <form class="reconference-form">
+            <label>Repair the Big Promise
+              <textarea id="carstairs-big-promise" placeholder="Make the picture's central attraction unmistakable."></textarea>
+            </label>
+            <label>Sharpen the Human Wound
+              <textarea id="carstairs-human-wound" placeholder="Clarify who is hurt, what they want, and why the audience should ache with them."></textarea>
+            </label>
+            <label>Give the Spectacle Meaning
+              <textarea id="carstairs-spectacle" placeholder="Explain how the key image changes character, fate, or moral pressure."></textarea>
+            </label>
+            <button type="button" id="resubmit-carstairs">Send Back Upstairs</button>
+          </form>
+        </article>
+      </section>
+    </main>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <script src="script.js"></script>
+  </body>
+</html>
