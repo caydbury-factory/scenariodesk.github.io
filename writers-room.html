@@ -278,9 +278,46 @@
           const conferenceHeading = document.querySelector("#conference-heading");
           if (conferenceHeading) conferenceHeading.textContent = `${status}: awaiting conference letter.`;
 
-          if (readerStatus && property.readerSynopsis) {
+          if (readerStatus && hasReaderReport(property)) {
             readerStatus.textContent = "Scenario reader report is filed in the ledger.";
           }
+        }
+
+        function hasReaderReport(property) {
+          if (!property) return false;
+          return Boolean(
+            String(property.readerSynopsis || "").trim() &&
+            String(property.keyDramaticSequences || "").trim() &&
+            String(property.characterArchetypes || "").trim()
+          );
+        }
+
+        async function waitForReaderReport(startedAt) {
+          const elapsed = Date.now() - startedAt;
+          const payload = await readLedger();
+          if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+
+          const property = (payload.properties || []).find((item) =>
+            String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
+          );
+
+          if (property) renderDynamicDossier(property);
+          if (hasReaderReport(property)) {
+            readerStatus.textContent = "Scenario reader report is filed in the ledger.";
+            return;
+          }
+
+          if (elapsed >= 90000) {
+            readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
+            return;
+          }
+
+          readerStatus.textContent = "The reader is still preparing the synopsis. Checking the ledger again...";
+          window.setTimeout(() => {
+            waitForReaderReport(startedAt).catch(() => {
+              readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
+            });
+          }, 5000);
         }
 
         async function runScenarioReader() {
@@ -305,21 +342,12 @@
               })
             });
 
-            readerStatus.textContent = "Reader report requested. Refreshing the dossier...";
+            readerStatus.textContent = "Reader report requested. Waiting for the ledger to receive the filed report...";
             window.setTimeout(() => {
-              readLedger()
-                .then((payload) => {
-                  if (!payload || !payload.ok) return;
-                  const property = (payload.properties || []).find((item) =>
-                    String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
-                  );
-                  if (property) renderDynamicDossier(property);
-                  readerStatus.textContent = "Scenario reader report is filed in the ledger.";
-                })
-                .catch(() => {
-                  readerStatus.textContent = "Reader report was requested. Refresh the page in a moment to inspect the file.";
-                });
-            }, 2200);
+              waitForReaderReport(Date.now()).catch(() => {
+                readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
+              });
+            }, 3000);
           } catch (error) {
             readerStatus.textContent = "The scenario reader could not be reached. Try once more.";
           } finally {
