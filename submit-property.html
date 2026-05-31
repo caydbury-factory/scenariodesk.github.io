@@ -24,19 +24,19 @@
     </header>
     <main>
       <section class="band submit">
-        <form class="studio-form submission-form">
+        <form class="studio-form submission-form" id="property-submission-form">
           <div class="form-letterhead">
             <p>Department of Scenarios</p>
             <span>Property Submission Form - All Fields To Be Completed In Full</span>
           </div>
 
           <label>Title of Property *
-            <input placeholder="Enter the title of the manuscript..." />
+            <input name="title" required placeholder="Enter the title of the manuscript..." />
           </label>
 
           <label>Nature of Material *
-            <select>
-              <option>-- Select Type of Source --</option>
+            <select name="sourceType" required>
+              <option value="">-- Select Type of Source --</option>
               <option>Pulp Magazine Story</option>
               <option>Novel</option>
               <option>Stage Play</option>
@@ -48,7 +48,7 @@
           </label>
 
           <label>Logline / Brief Synopsis
-            <textarea class="short-textarea" placeholder="In no more than three sentences, describe the heart of this property..."></textarea>
+            <textarea class="short-textarea" name="logline" placeholder="In no more than three sentences, describe the heart of this property..."></textarea>
           </label>
 
           <label class="upload-box">Manuscript - Upload Document (TXT, PDF Text)
@@ -57,14 +57,15 @@
           </label>
 
           <label>Manuscript Text (Paste or Type Directly)
-            <textarea class="manuscript-text" placeholder="Paste or type the full text of the manuscript here..."></textarea>
+            <textarea class="manuscript-text" name="manuscriptText" placeholder="Paste or type the full text of the manuscript here..."></textarea>
           </label>
 
           <label>Notes to the Scenario Department
-            <textarea class="short-textarea" placeholder="Any particular concerns, strengths, or directions you wish the writers to consider..."></textarea>
+            <textarea class="short-textarea" name="notes" placeholder="Any particular concerns, strengths, or directions you wish the writers to consider..."></textarea>
           </label>
 
-          <button type="button">Submit This Property to the Scenario Department -></button>
+          <p class="submission-status" id="submission-status" role="status" aria-live="polite"></p>
+          <button type="submit" id="submit-property-button">Submit This Property to the Scenario Department -></button>
         </form>
       </section>
     </main>

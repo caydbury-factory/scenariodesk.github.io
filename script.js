@@ -137,12 +137,62 @@ issueButtons.forEach((button) => {
 
 const manuscriptFile = document.querySelector("#manuscript-file");
 const uploadLabel = document.querySelector("#upload-label");
+const submissionForm = document.querySelector("#property-submission-form");
+const submissionStatus = document.querySelector("#submission-status");
+const submitPropertyButton = document.querySelector("#submit-property-button");
+const scenarioBackendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
 
 if (manuscriptFile && uploadLabel) {
   manuscriptFile.addEventListener("change", () => {
     uploadLabel.textContent = manuscriptFile.files.length
       ? manuscriptFile.files[0].name
       : "Place manuscript here - or paste text below";
+  });
+}
+
+if (submissionForm && submissionStatus && submitPropertyButton) {
+  submissionForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(submissionForm);
+    const payload = {
+      title: formData.get("title") || "",
+      sourceType: formData.get("sourceType") || "",
+      logline: formData.get("logline") || "",
+      manuscriptText: formData.get("manuscriptText") || "",
+      notes: formData.get("notes") || ""
+    };
+
+    if (!payload.title.trim() || !payload.sourceType.trim()) {
+      submissionStatus.textContent = "The department requires a title and nature of material before filing.";
+      submissionStatus.className = "submission-status submission-status--error";
+      return;
+    }
+
+    submitPropertyButton.disabled = true;
+    submissionStatus.textContent = "Filing property with the Scenario Department ledger...";
+    submissionStatus.className = "submission-status";
+
+    try {
+      await fetch(scenarioBackendUrl, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      submissionStatus.textContent = "Property filed. The ledger will mark it Needs Reader.";
+      submissionStatus.className = "submission-status submission-status--success";
+      submissionForm.reset();
+      uploadLabel.textContent = "Place manuscript here - or paste text below";
+    } catch (error) {
+      submissionStatus.textContent = "The filing clerk could not reach the ledger. Try once more.";
+      submissionStatus.className = "submission-status submission-status--error";
+    } finally {
+      submitPropertyButton.disabled = false;
+    }
   });
 }
 

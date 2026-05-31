@@ -266,6 +266,11 @@ h3 { font-size: 1.05rem; }
   box-shadow: 0 8px 22px rgba(0,0,0,.28);
 }
 
+.studio-form button:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
 .button--ghost {
   color: #f8edcf;
   background: rgba(37,19,13,.35);
@@ -415,7 +420,23 @@ input, textarea, select {
   background: rgba(255,249,230,.76);
   padding: .85rem;
 }
-.studio-form label:nth-child(3), .studio-form label:nth-child(4), fieldset, .studio-form button { grid-column: 1 / -1; }
+.studio-form label:nth-child(3), .studio-form label:nth-child(4), fieldset, .studio-form button, .submission-status { grid-column: 1 / -1; }
+
+.submission-status {
+  min-height: 1.4rem;
+  margin: .25rem 0 0;
+  color: #7d431c;
+  font-family: "Special Elite", monospace;
+  line-height: 1.5;
+}
+
+.submission-status--success {
+  color: var(--green);
+}
+
+.submission-status--error {
+  color: var(--red);
+}
 fieldset {
   border: 1px solid rgba(74,33,22,.38);
   border-radius: 3px;
