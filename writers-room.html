@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -143,5 +143,107 @@
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
     <script src="script.js"></script>
+    <script>
+      (() => {
+        const requestedProperty = new URLSearchParams(window.location.search).get("property");
+        if (!requestedProperty || !/^SPC-/i.test(requestedProperty)) return;
+
+        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+
+        function escapeHtml(value) {
+          return String(value || "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "\"": "&quot;",
+            "'": "&#39;"
+          })[char]);
+        }
+
+        function readLedger() {
+          return new Promise((resolve, reject) => {
+            const callbackName = `writersRoomLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const script = document.createElement("script");
+            const timeout = window.setTimeout(() => {
+              cleanup();
+              reject(new Error("Ledger request timed out."));
+            }, 12000);
+
+            function cleanup() {
+              window.clearTimeout(timeout);
+              delete window[callbackName];
+              script.remove();
+            }
+
+            window[callbackName] = (payload) => {
+              cleanup();
+              resolve(payload);
+            };
+
+            script.onerror = () => {
+              cleanup();
+              reject(new Error("Ledger request failed."));
+            };
+
+            script.src = `${backendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
+            document.body.appendChild(script);
+          });
+        }
+
+        function renderTextBlock(container, value, emptyMessage) {
+          if (!container) return;
+          const text = String(value || "").trim();
+          container.innerHTML = text
+            ? `<p>${escapeHtml(text).replace(/\n+/g, "</p><p>")}</p>`
+            : `<div class="analysis-card"><p>${escapeHtml(emptyMessage)}</p></div>`;
+        }
+
+        function renderDynamicDossier(property) {
+          const title = property.title || "Untitled Property";
+          const source = property.sourceType || "Unclassified Property";
+          const status = property.status || "Needs Reader";
+          const reader = property.reader || "Awaiting scenario reader assignment";
+          const notes = property.notes || "No submitter notes have been entered for this property.";
+          const logline = property.logline || "No logline has been entered for this property yet.";
+          const synopsis = property.readerSynopsis || property.manuscriptText || "The scenario reader has not yet prepared a synopsis for this property.";
+
+          document.title = `${title} | Writers' Room`;
+          document.querySelector("#property-kicker").textContent = `Property Under Consideration - ${source} - ${property.propertyId || requestedProperty}`;
+          document.querySelector("#property-title").textContent = title;
+          document.querySelector("#property-logline").textContent = logline;
+          document.querySelector("#property-notes").innerHTML = `<strong>Submitter's Notes:</strong> ${escapeHtml(notes)}`;
+          document.querySelector("#reader-name").textContent = reader;
+          document.querySelector("#reader-synopsis").textContent = synopsis;
+
+          renderTextBlock(
+            document.querySelector("#sequence-list"),
+            property.keyDramaticSequences,
+            "Key dramatic sequences will appear here after the scenario reader has examined the material."
+          );
+
+          renderTextBlock(
+            document.querySelector("#archetype-list"),
+            property.characterArchetypes,
+            "Character archetypes will appear here after the scenario reader has examined the material."
+          );
+
+          const conferenceHeading = document.querySelector("#conference-heading");
+          if (conferenceHeading) conferenceHeading.textContent = `${status}: awaiting conference letter.`;
+        }
+
+        readLedger()
+          .then((payload) => {
+            if (!payload || !payload.ok) return;
+            const property = (payload.properties || []).find((item) =>
+              String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
+            );
+            if (property) renderDynamicDossier(property);
+          })
+          .catch(() => {
+            const readerName = document.querySelector("#reader-name");
+            if (readerName) readerName.textContent = "Ledger unavailable - showing sample dossier";
+          });
+      })();
+    </script>
   </body>
 </html>

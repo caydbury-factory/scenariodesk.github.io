@@ -1,10 +1,29 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Scenario Desk | The Scenario Department</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .desk-ledger-status {
+        max-width: 760px;
+        margin: .7rem auto 0;
+        color: #f0cc77;
+        font-family: "Special Elite", monospace;
+        font-size: .92rem;
+        line-height: 1.6;
+      }
+
+      .property-id {
+        margin: -.25rem 0 .35rem;
+        color: #9b702e;
+        font-family: "Special Elite", monospace;
+        font-size: .78rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+    </style>
   </head>
   <body class="scenario-page">
     <nav class="nav" aria-label="Primary">
@@ -111,6 +130,113 @@
       </section>
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
-      <script src="script.js"></script>
+    <script src="script.js"></script>
+    <script>
+      (() => {
+        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+        const board = document.querySelector("#property-board");
+        const status = document.querySelector("#desk-ledger-status");
+        if (!board || window.scenarioDeskLedgerWired) return;
+        window.scenarioDeskLedgerWired = true;
+
+        function escapeHtml(value) {
+          return String(value || "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "\"": "&quot;",
+            "'": "&#39;"
+          })[char]);
+        }
+
+        function statusClass(value) {
+          const normalized = String(value || "").toLowerCase();
+          if (normalized.includes("conference ready") || normalized.includes("greenlit") || normalized.includes("treatment")) return "stamp--green";
+          if (normalized.includes("wastebasket")) return "rubber--red";
+          return "";
+        }
+
+        function propertyHref(property) {
+          const key = property.propertyId || property.title || "dangerous-kisses";
+          return `writers-room.html?property=${encodeURIComponent(key)}`;
+        }
+
+        function updateTotals(properties) {
+          document.querySelector("#desk-total-properties").textContent = String(properties.length);
+          document.querySelector("#desk-total-conference").textContent = String(properties.filter((property) => /conference ready/i.test(property.status || "")).length);
+          document.querySelector("#desk-total-mined").textContent = String(properties.filter((property) => /mined/i.test(property.status || "") || /pulp/i.test(property.sourceType || "")).length);
+          document.querySelector("#desk-total-reader").textContent = String(properties.filter((property) => /needs reader/i.test(property.status || "")).length);
+        }
+
+        function render(properties) {
+          if (!Array.isArray(properties) || !properties.length) {
+            if (status) status.textContent = "The live ledger is empty, so the desk is showing its sample property cards.";
+            return;
+          }
+
+          board.innerHTML = properties.map((property, index) => {
+            const stamp = property.status || "Needs Reader";
+            const source = property.sourceType || "Unclassified Property";
+            const reader = property.reader || "Awaiting assignment";
+            const score = property.suitabilityScore || "Pending";
+            const summary = property.logline || property.notes || "No synopsis has been entered for this property yet.";
+            const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
+
+            return `
+              <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
+                <div class="property-card__clip"></div>
+                <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
+                ${idLine}
+                <h3>${escapeHtml(property.title || "Untitled Property")}</h3>
+                <dl>
+                  <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
+                  <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
+                  <dt>Score</dt><dd>${escapeHtml(score)}</dd>
+                </dl>
+                <p>${escapeHtml(summary)}</p>
+                <span class="button button--small">Open Writers' Room</span>
+              </a>
+            `;
+          }).join("");
+
+          updateTotals(properties);
+          if (status) status.textContent = "Live ledger connected. Showing current properties from the archive.";
+        }
+
+        function loadLedger() {
+          const callbackName = `scenarioLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+          const script = document.createElement("script");
+          const timeout = window.setTimeout(() => {
+            cleanup();
+            if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
+          }, 12000);
+
+          function cleanup() {
+            window.clearTimeout(timeout);
+            delete window[callbackName];
+            script.remove();
+          }
+
+          window[callbackName] = (payload) => {
+            cleanup();
+            if (!payload || !payload.ok) {
+              if (status) status.textContent = "The ledger returned an error, so the desk is showing its sample property cards.";
+              return;
+            }
+            render(payload.properties || []);
+          };
+
+          script.onerror = () => {
+            cleanup();
+            if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
+          };
+
+          script.src = `${backendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
+          document.body.appendChild(script);
+        }
+
+        loadLedger();
+      })();
+    </script>
   </body>
 </html>
