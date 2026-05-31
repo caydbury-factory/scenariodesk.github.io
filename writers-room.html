@@ -5,6 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Writers' Room | The Scenario Department</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .scenario-reader-actions {
+        display: grid;
+        gap: .75rem;
+        margin-top: 1.1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(144, 97, 54, .22);
+      }
+
+      .scenario-reader-actions button {
+        min-height: 52px;
+        width: fit-content;
+        padding: .8rem 1.2rem;
+        color: #fdf6df;
+        background: #8e531b;
+        border: 2px solid #c99108;
+        border-radius: 0;
+        font-family: "Cinzel", Georgia, serif;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      .scenario-reader-actions button:disabled {
+        cursor: wait;
+        opacity: .62;
+      }
+
+      .scenario-reader-status {
+        min-height: 1.3rem;
+        margin: 0;
+        color: #7d431c;
+        font-family: "Special Elite", monospace;
+        line-height: 1.55;
+      }
+    </style>
   </head>
   <body class="writers-page">
     <nav class="nav" aria-label="Primary">
@@ -40,6 +77,10 @@
             <span id="reader-name">Beatrice "Bee" Vance - High-society romances and modern audience appeal</span>
           </div>
           <p id="reader-synopsis">Barbara Ferrers, a spirited lady's maid, dreams of a dazzling adventure aboard a luxury Mediterranean cruise, where sunlight decks shimmer and laughter dances on the breeze. Her life takes an unexpected turn when a mysterious stranger saves her from a perilous fall, sparking a forbidden romance that defies their class boundaries. Torn between loyalty to her station and her desire for freedom, Barbara must decide whether love is worth the scandal that follows.</p>
+          <div class="scenario-reader-actions" id="scenario-reader-actions" hidden>
+            <button type="button" id="run-scenario-reader">Run Scenario Reader</button>
+            <p class="scenario-reader-status" id="scenario-reader-status" role="status" aria-live="polite"></p>
+          </div>
         </article>
 
         <section class="analysis-grid">
@@ -149,6 +190,12 @@
         if (!requestedProperty || !/^SPC-/i.test(requestedProperty)) return;
 
         const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+        const readerActions = document.querySelector("#scenario-reader-actions");
+        const readerButton = document.querySelector("#run-scenario-reader");
+        const readerStatus = document.querySelector("#scenario-reader-status");
+        let activeLedgerProperty = null;
+
+        if (readerActions) readerActions.hidden = false;
 
         function escapeHtml(value) {
           return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -199,6 +246,7 @@
         }
 
         function renderDynamicDossier(property) {
+          activeLedgerProperty = property;
           const title = property.title || "Untitled Property";
           const source = property.sourceType || "Unclassified Property";
           const status = property.status || "Needs Reader";
@@ -229,6 +277,60 @@
 
           const conferenceHeading = document.querySelector("#conference-heading");
           if (conferenceHeading) conferenceHeading.textContent = `${status}: awaiting conference letter.`;
+
+          if (readerStatus && property.readerSynopsis) {
+            readerStatus.textContent = "Scenario reader report is filed in the ledger.";
+          }
+        }
+
+        async function runScenarioReader() {
+          if (!readerButton || !readerStatus) return;
+
+          readerButton.disabled = true;
+          readerStatus.textContent = "The scenario reader is examining the property file...";
+
+          try {
+            await fetch(backendUrl, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify({
+                action: "runReader",
+                propertyId: requestedProperty,
+                title: activeLedgerProperty && activeLedgerProperty.title ? activeLedgerProperty.title : "",
+                sourceType: activeLedgerProperty && activeLedgerProperty.sourceType ? activeLedgerProperty.sourceType : "",
+                logline: activeLedgerProperty && activeLedgerProperty.logline ? activeLedgerProperty.logline : "",
+                notes: activeLedgerProperty && activeLedgerProperty.notes ? activeLedgerProperty.notes : "",
+                manuscriptText: activeLedgerProperty && activeLedgerProperty.manuscriptText ? activeLedgerProperty.manuscriptText : ""
+              })
+            });
+
+            readerStatus.textContent = "Reader report requested. Refreshing the dossier...";
+            window.setTimeout(() => {
+              readLedger()
+                .then((payload) => {
+                  if (!payload || !payload.ok) return;
+                  const property = (payload.properties || []).find((item) =>
+                    String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
+                  );
+                  if (property) renderDynamicDossier(property);
+                  readerStatus.textContent = "Scenario reader report is filed in the ledger.";
+                })
+                .catch(() => {
+                  readerStatus.textContent = "Reader report was requested. Refresh the page in a moment to inspect the file.";
+                });
+            }, 2200);
+          } catch (error) {
+            readerStatus.textContent = "The scenario reader could not be reached. Try once more.";
+          } finally {
+            window.setTimeout(() => {
+              readerButton.disabled = false;
+            }, 2400);
+          }
+        }
+
+        if (readerButton) {
+          readerButton.addEventListener("click", runScenarioReader);
         }
 
         readLedger()
