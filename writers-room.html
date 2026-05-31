@@ -14,6 +14,26 @@
         border-top: 1px solid rgba(144, 97, 54, .22);
       }
 
+      .scenario-reader-actions button {
+        min-height: 52px;
+        width: fit-content;
+        padding: .8rem 1.2rem;
+        color: #fdf6df;
+        background: #8e531b;
+        border: 2px solid #c99108;
+        border-radius: 0;
+        font-family: "Cinzel", Georgia, serif;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+
+      .scenario-reader-actions button:disabled {
+        cursor: wait;
+        opacity: .62;
+      }
+
       .scenario-reader-status {
         min-height: 1.3rem;
         margin: 0;
@@ -223,7 +243,7 @@
           if (!text) return [];
 
           const normalized = text.replace(/\r/g, "\n");
-          const matches = [...normalized.matchAll(/(?:^|\n)\s*(?:\d+[\.)]|Scene\s+\d+[:\.)-]?|SCENE\s+\d+[:\.)-]?)\s*/g)];
+          const matches = [...normalized.matchAll(/(?:^|[\n\r]|\s)(?:\d+[\.)]\s+|Scene\s+\d+\s*[:\.)-]\s*)/gi)];
 
           if (!matches.length) {
             return normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
