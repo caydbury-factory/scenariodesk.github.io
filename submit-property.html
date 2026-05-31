@@ -71,5 +71,108 @@
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
     <script src="script.js"></script>
+    <script>
+      (() => {
+        const form = document.querySelector("#property-submission-form");
+        const status = document.querySelector("#submission-status");
+        const button = document.querySelector("#submit-property-button");
+        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+
+        if (!form || !status || !button) return;
+
+        function readLedger() {
+          return new Promise((resolve, reject) => {
+            const callbackName = `submitLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const script = document.createElement("script");
+            const timeout = window.setTimeout(() => {
+              cleanup();
+              reject(new Error("Ledger request timed out."));
+            }, 12000);
+
+            function cleanup() {
+              window.clearTimeout(timeout);
+              delete window[callbackName];
+              script.remove();
+            }
+
+            window[callbackName] = (payload) => {
+              cleanup();
+              resolve(payload);
+            };
+
+            script.onerror = () => {
+              cleanup();
+              reject(new Error("Ledger request failed."));
+            };
+
+            script.src = `${backendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
+            document.body.appendChild(script);
+          });
+        }
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+
+          const formData = new FormData(form);
+          const payload = {
+            title: formData.get("title") || "",
+            sourceType: formData.get("sourceType") || "",
+            logline: formData.get("logline") || "",
+            manuscriptText: formData.get("manuscriptText") || "",
+            notes: formData.get("notes") || ""
+          };
+
+          if (!payload.title.trim() || !payload.sourceType.trim()) {
+            status.textContent = "The department requires a title and nature of material before filing.";
+            status.className = "submission-status submission-status--error";
+            return;
+          }
+
+          button.disabled = true;
+          status.textContent = "Filing property with the Scenario Department ledger...";
+          status.className = "submission-status";
+
+          try {
+            await fetch(backendUrl, {
+              method: "POST",
+              mode: "no-cors",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify(payload)
+            });
+
+            status.textContent = "Property filed. Sending the dossier to the Writers' Room...";
+
+            window.setTimeout(() => {
+              readLedger()
+                .then((ledger) => {
+                  if (!ledger || !ledger.ok) throw new Error("Ledger response was not OK.");
+                  const properties = ledger.properties || [];
+                  const matchingProperty = properties.find((property) =>
+                    String(property.title || "").trim().toLowerCase() === payload.title.trim().toLowerCase() &&
+                    String(property.sourceType || "").trim().toLowerCase() === payload.sourceType.trim().toLowerCase()
+                  ) || properties.find((property) =>
+                    String(property.title || "").trim().toLowerCase() === payload.title.trim().toLowerCase()
+                  );
+
+                  const propertyId = matchingProperty && matchingProperty.propertyId;
+                  window.location.href = propertyId
+                    ? `writers-room.html?property=${encodeURIComponent(propertyId)}&reader=auto`
+                    : "scenario-desk.html";
+                })
+                .catch(() => {
+                  status.textContent = "Property filed. Return to the Scenario Desk to open the new file.";
+                  status.className = "submission-status submission-status--success";
+                  button.disabled = false;
+                });
+            }, 2200);
+          } catch (error) {
+            status.textContent = "The filing clerk could not reach the ledger. Try once more.";
+            status.className = "submission-status submission-status--error";
+            button.disabled = false;
+          }
+        }, true);
+      })();
+    </script>
   </body>
 </html>
