@@ -14,26 +14,6 @@
         border-top: 1px solid rgba(144, 97, 54, .22);
       }
 
-      .scenario-reader-actions button {
-        min-height: 52px;
-        width: fit-content;
-        padding: .8rem 1.2rem;
-        color: #fdf6df;
-        background: #8e531b;
-        border: 2px solid #c99108;
-        border-radius: 0;
-        font-family: "Cinzel", Georgia, serif;
-        font-weight: 900;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-
-      .scenario-reader-actions button:disabled {
-        cursor: wait;
-        opacity: .62;
-      }
-
       .scenario-reader-status {
         min-height: 1.3rem;
         margin: 0;
@@ -71,16 +51,16 @@
           <blockquote id="property-notes"><strong>Submitter's Notes:</strong> Extracted from: Unknown Publication, Author: Unknown. Suitability Score: 9/10. Strong protagonist with clear desires, dramatic action potential, and moral conflict regarding class and love; rich visual settings for your photoplay.</blockquote>
         </article>
 
+        <div class="scenario-reader-actions" id="scenario-reader-actions" hidden>
+          <p class="scenario-reader-status" id="scenario-reader-status" role="status" aria-live="polite"></p>
+        </div>
+
         <article class="dossier-sheet reader-sheet">
           <div class="form-letterhead">
             <p>Synopsis - As Prepared by the Scenario Reader</p>
             <span id="reader-name">Beatrice "Bee" Vance - High-society romances and modern audience appeal</span>
           </div>
           <p id="reader-synopsis">Barbara Ferrers, a spirited lady's maid, dreams of a dazzling adventure aboard a luxury Mediterranean cruise, where sunlight decks shimmer and laughter dances on the breeze. Her life takes an unexpected turn when a mysterious stranger saves her from a perilous fall, sparking a forbidden romance that defies their class boundaries. Torn between loyalty to her station and her desire for freedom, Barbara must decide whether love is worth the scandal that follows.</p>
-          <div class="scenario-reader-actions" id="scenario-reader-actions" hidden>
-            <button type="button" id="run-scenario-reader">Run Scenario Reader</button>
-            <p class="scenario-reader-status" id="scenario-reader-status" role="status" aria-live="polite"></p>
-          </div>
         </article>
 
         <section class="analysis-grid">
@@ -187,13 +167,14 @@
     <script>
       (() => {
         const requestedProperty = new URLSearchParams(window.location.search).get("property");
+        const shouldAutoRunReader = new URLSearchParams(window.location.search).get("reader") === "auto";
         if (!requestedProperty || !/^SPC-/i.test(requestedProperty)) return;
 
         const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
         const readerActions = document.querySelector("#scenario-reader-actions");
-        const readerButton = document.querySelector("#run-scenario-reader");
         const readerStatus = document.querySelector("#scenario-reader-status");
         let activeLedgerProperty = null;
+        let readerHasStarted = false;
 
         if (readerActions) readerActions.hidden = false;
 
@@ -237,12 +218,48 @@
           });
         }
 
-        function renderTextBlock(container, value, emptyMessage) {
-          if (!container) return;
+        function splitNumberedItems(value) {
           const text = String(value || "").trim();
-          container.innerHTML = text
-            ? `<p>${escapeHtml(text).replace(/\n+/g, "</p><p>")}</p>`
-            : `<div class="analysis-card"><p>${escapeHtml(emptyMessage)}</p></div>`;
+          if (!text) return [];
+
+          const normalized = text.replace(/\r/g, "\n");
+          const matches = [...normalized.matchAll(/(?:^|\n)\s*(?:\d+[\.)]|Scene\s+\d+[:\.)-]?|SCENE\s+\d+[:\.)-]?)\s*/g)];
+
+          if (!matches.length) {
+            return normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
+          }
+
+          return matches.map((match, index) => {
+            const start = match.index + match[0].length;
+            const end = index < matches.length - 1 ? matches[index + 1].index : normalized.length;
+            return normalized.slice(start, end).trim();
+          }).filter(Boolean);
+        }
+
+        function renderAnalysisCards(container, value, emptyMessage, type) {
+          if (!container) return;
+          const items = splitNumberedItems(value);
+
+          if (!items.length) {
+            container.innerHTML = `<div class="analysis-card"><p>${escapeHtml(emptyMessage)}</p></div>`;
+            return;
+          }
+
+          container.innerHTML = items.map((item, index) => {
+            const [rawTitle, ...rest] = item.split(/\s+[–-]\s+|:\s+/);
+            const hasUsefulTitle = rest.length && rawTitle.length < 70;
+            const title = type === "sequence"
+              ? `Scene ${String(index + 1).padStart(2, "0")}${hasUsefulTitle ? `: ${rawTitle}` : ""}`
+              : (hasUsefulTitle ? rawTitle : `Character ${String(index + 1).padStart(2, "0")}`);
+            const body = hasUsefulTitle ? rest.join(" - ") : item;
+
+            return `
+              <div class="analysis-card">
+                <h3>${escapeHtml(title)}</h3>
+                <p>${escapeHtml(body)}</p>
+              </div>
+            `;
+          }).join("");
         }
 
         function renderDynamicDossier(property) {
@@ -253,7 +270,7 @@
           const reader = property.reader || "Awaiting scenario reader assignment";
           const notes = property.notes || "No submitter notes have been entered for this property.";
           const logline = property.logline || "No logline has been entered for this property yet.";
-          const synopsis = property.readerSynopsis || property.manuscriptText || "The scenario reader has not yet prepared a synopsis for this property.";
+          const synopsis = property.readerSynopsis || "The scenario reader is preparing the file.";
 
           document.title = `${title} | Writers' Room`;
           document.querySelector("#property-kicker").textContent = `Property Under Consideration - ${source} - ${property.propertyId || requestedProperty}`;
@@ -263,16 +280,18 @@
           document.querySelector("#reader-name").textContent = reader;
           document.querySelector("#reader-synopsis").textContent = synopsis;
 
-          renderTextBlock(
+          renderAnalysisCards(
             document.querySelector("#sequence-list"),
             property.keyDramaticSequences,
-            "Key dramatic sequences will appear here after the scenario reader has examined the material."
+            "Key dramatic sequences will appear here after the scenario reader has examined the material.",
+            "sequence"
           );
 
-          renderTextBlock(
+          renderAnalysisCards(
             document.querySelector("#archetype-list"),
             property.characterArchetypes,
-            "Character archetypes will appear here after the scenario reader has examined the material."
+            "Character archetypes will appear here after the scenario reader has examined the material.",
+            "character"
           );
 
           const conferenceHeading = document.querySelector("#conference-heading");
@@ -280,6 +299,10 @@
 
           if (readerStatus && hasReaderReport(property)) {
             readerStatus.textContent = "Scenario reader report is filed in the ledger.";
+          }
+
+          if (readerStatus && !hasReaderReport(property) && !readerHasStarted) {
+            readerStatus.textContent = "The scenario reader is preparing the file.";
           }
         }
 
@@ -321,9 +344,9 @@
         }
 
         async function runScenarioReader() {
-          if (!readerButton || !readerStatus) return;
+          if (!readerStatus || readerHasStarted) return;
 
-          readerButton.disabled = true;
+          readerHasStarted = true;
           readerStatus.textContent = "The scenario reader is examining the property file...";
 
           try {
@@ -351,14 +374,8 @@
           } catch (error) {
             readerStatus.textContent = "The scenario reader could not be reached. Try once more.";
           } finally {
-            window.setTimeout(() => {
-              readerButton.disabled = false;
-            }, 2400);
+            // The reader remains a background filing action for this property.
           }
-        }
-
-        if (readerButton) {
-          readerButton.addEventListener("click", runScenarioReader);
         }
 
         readLedger()
@@ -367,7 +384,12 @@
             const property = (payload.properties || []).find((item) =>
               String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
             );
-            if (property) renderDynamicDossier(property);
+            if (property) {
+              renderDynamicDossier(property);
+              if (shouldAutoRunReader && !hasReaderReport(property)) {
+                runScenarioReader();
+              }
+            }
           })
           .catch(() => {
             const readerName = document.querySelector("#reader-name");
