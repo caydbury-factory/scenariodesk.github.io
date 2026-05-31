@@ -142,6 +142,111 @@ const submissionStatus = document.querySelector("#submission-status");
 const submitPropertyButton = document.querySelector("#submit-property-button");
 const scenarioBackendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
 
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function loadLedgerProperties() {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Ledger request timed out."));
+    }, 12000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Ledger request failed."));
+    };
+
+    script.src = `${scenarioBackendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
+function statusClass(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized.includes("conference ready") || normalized.includes("greenlit") || normalized.includes("treatment")) return "stamp--green";
+  if (normalized.includes("wastebasket")) return "stamp--red";
+  return "";
+}
+
+function propertyHref(property) {
+  const key = property.propertyId || property.title || "dangerous-kisses";
+  return `writers-room.html?property=${encodeURIComponent(key)}`;
+}
+
+function renderScenarioDesk(properties) {
+  const board = document.querySelector("#property-board");
+  const status = document.querySelector("#desk-ledger-status");
+  if (!board || !Array.isArray(properties) || !properties.length) {
+    if (status) status.textContent = "The live ledger is empty, so the desk is showing its sample property cards.";
+    return;
+  }
+
+  board.innerHTML = properties.map((property, index) => {
+    const stamp = property.status || "Needs Reader";
+    const source = property.sourceType || "Unclassified Property";
+    const reader = property.reader || "Awaiting assignment";
+    const score = property.suitabilityScore || "Pending";
+    const summary = property.logline || property.notes || "No synopsis has been entered for this property yet.";
+    const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
+
+    return `
+      <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
+        <div class="property-card__clip"></div>
+        <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
+        ${idLine}
+        <h3>${escapeHtml(property.title || "Untitled Property")}</h3>
+        <dl>
+          <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
+          <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
+          <dt>Score</dt><dd>${escapeHtml(score)}</dd>
+        </dl>
+        <p>${escapeHtml(summary)}</p>
+        <span class="button button--small">Open Writers' Room</span>
+      </a>
+    `;
+  }).join("");
+
+  document.querySelector("#desk-total-properties").textContent = String(properties.length);
+  document.querySelector("#desk-total-conference").textContent = String(properties.filter((property) => /conference ready/i.test(property.status || "")).length);
+  document.querySelector("#desk-total-mined").textContent = String(properties.filter((property) => /mined/i.test(property.status || "") || /pulp/i.test(property.sourceType || "")).length);
+  document.querySelector("#desk-total-reader").textContent = String(properties.filter((property) => /needs reader/i.test(property.status || "")).length);
+
+  if (status) status.textContent = "Live ledger connected. Showing current properties from the archive.";
+}
+
+if (document.querySelector("#property-board")) {
+  loadLedgerProperties()
+    .then((payload) => {
+      if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Ledger response was not OK.");
+      renderScenarioDesk(payload.properties || []);
+    })
+    .catch(() => {
+      const status = document.querySelector("#desk-ledger-status");
+      if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
+    });
+}
+
 if (manuscriptFile && uploadLabel) {
   manuscriptFile.addEventListener("change", () => {
     uploadLabel.textContent = manuscriptFile.files.length

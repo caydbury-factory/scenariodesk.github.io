@@ -41,10 +41,10 @@
           </div>
 
           <div class="desk-totals" aria-label="Scenario desk totals">
-            <article><strong>4</strong><span>Properties on Desk</span></article>
-            <article><strong>1</strong><span>Conference Ready</span></article>
-            <article><strong>2</strong><span>Mined Archive</span></article>
-            <article><strong>1</strong><span>Needs Reader</span></article>
+            <article><strong id="desk-total-properties">4</strong><span>Properties on Desk</span></article>
+            <article><strong id="desk-total-conference">1</strong><span>Conference Ready</span></article>
+            <article><strong id="desk-total-mined">2</strong><span>Mined Archive</span></article>
+            <article><strong id="desk-total-reader">1</strong><span>Needs Reader</span></article>
           </div>
         </div>
 
@@ -52,9 +52,10 @@
           <p class="eyebrow">Recent Submissions - From the In-Tray</p>
           <h2>Under the Banker Lamp</h2>
           <p>Open any property to send it into the Writers' Room dossier: reader synopsis, dramatic sequences, archetypes, conference letter, and verdicts.</p>
+          <p class="desk-ledger-status" id="desk-ledger-status" role="status" aria-live="polite">Consulting the Scenario Department Archive Ledger...</p>
         </div>
 
-        <div class="property-board property-board--desk">
+        <div class="property-board property-board--desk" id="property-board">
           <a class="property-card property-card--active" href="writers-room.html?property=dangerous-kisses">
             <div class="property-card__clip"></div>
             <p class="stamp stamp--green">Conference Ready</p>
