@@ -339,7 +339,7 @@
                 candidate.sourceIssue ? `Source issue: ${candidate.sourceIssue}` : "",
                 candidate.suggestedGenre ? `Suggested genre: ${candidate.suggestedGenre}` : ""
               ].filter(Boolean).join("\n"),
-              manuscriptText: ""
+              manuscriptText: candidate.storyExcerpt || candidate.photoplayPromise || ""
             })
           });
         }
@@ -522,6 +522,7 @@
                     <dt>Genre</dt><dd>${escapeHtml(candidate.suggestedGenre || "Unclassified Photoplay")}</dd>
                   </dl>
                   <p>${escapeHtml(candidate.photoplayPromise || "The miner found possible motion picture material, pending departmental review.")}</p>
+                  ${candidate.storyExcerpt ? `<p><em>Excerpt prepared for the Scenario Reader.</em></p>` : ""}
                   <button
                     class="button button--small archive-candidate-submit"
                     type="button"
