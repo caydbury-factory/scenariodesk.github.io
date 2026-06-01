@@ -200,7 +200,7 @@
           </div>
           <form class="miner-form">
             <label>Mining Criteria
-              <textarea>Find stories with a clear protagonist, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
+              <textarea>Find stories with a clear protagonist, visible conflict, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
             </label>
             <button class="button" type="button" id="mine-issue">Mine Selected Issues</button>
           </form>
@@ -212,14 +212,14 @@
             <h3>The Lantern at Bitter Creek</h3>
             <dl><dt>Author</dt><dd>Marian Vale</dd><dt>Source</dt><dd>Argosy All-Story Weekly, May 12, 1928</dd></dl>
             <p>A disgraced surveyor escorts a widow across a flood-threatened mountain pass and discovers the railroad fraud that ruined them both.</p>
-            <a class="button button--small" href="submit-property.html">Submit Property</a>
+            <a class="button button--small" href="submit-property.html">Send to Scenario Desk</a>
           </article>
           <article class="report">
             <p class="stamp">Needs Conference</p>
             <h3>The Glass Duchess</h3>
             <dl><dt>Author</dt><dd>E. L. Markham</dd><dt>Source</dt><dd>Love Story Magazine, October 1930</dd></dl>
             <p>A society impostor wins a title, loses a sister, and must choose between reputation and confession on opening night.</p>
-            <a class="button button--small" href="submit-property.html">Submit Property</a>
+            <a class="button button--small" href="submit-property.html">Send to Scenario Desk</a>
           </article>
         </div>
       </section>
@@ -321,6 +321,26 @@
 
             script.src = `${backendUrl}?${params.toString()}`;
             document.body.appendChild(script);
+          });
+        }
+
+        function submitMinedCandidate(candidate) {
+          return fetch(backendUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              title: candidate.storyTitle || "Untitled Mined Story",
+              sourceType: "Pulp Magazine Story",
+              originalAuthor: candidate.author || "",
+              logline: candidate.photoplayPromise || "",
+              notes: [
+                "Mined from the Pulp Archives.",
+                candidate.sourceIssue ? `Source issue: ${candidate.sourceIssue}` : "",
+                candidate.suggestedGenre ? `Suggested genre: ${candidate.suggestedGenre}` : ""
+              ].filter(Boolean).join("\n"),
+              manuscriptText: ""
+            })
           });
         }
 
@@ -502,9 +522,32 @@
                     <dt>Genre</dt><dd>${escapeHtml(candidate.suggestedGenre || "Unclassified Photoplay")}</dd>
                   </dl>
                   <p>${escapeHtml(candidate.photoplayPromise || "The miner found possible motion picture material, pending departmental review.")}</p>
-                  <a class="button button--small" href="submit-property.html">Mine This Story</a>
+                  <button
+                    class="button button--small archive-candidate-submit"
+                    type="button"
+                    data-candidate-index="${index}"
+                  >Send to Scenario Desk</button>
                 </article>
               `).join("");
+
+              archiveResults.querySelectorAll(".archive-candidate-submit").forEach((button) => {
+                button.addEventListener("click", async () => {
+                  const candidate = payload.candidates[Number(button.dataset.candidateIndex)] || {};
+                  button.disabled = true;
+                  button.textContent = "Filing with Scenario Desk...";
+
+                  try {
+                    await submitMinedCandidate(candidate);
+                    button.textContent = "Filed with Scenario Desk";
+                    window.setTimeout(() => {
+                      window.location.href = "scenario-desk.html";
+                    }, 1600);
+                  } catch (error) {
+                    button.disabled = false;
+                    button.textContent = "Send to Scenario Desk";
+                  }
+                });
+              });
             } catch (error) {
               archiveResults.innerHTML = `
                 <article class="report">
