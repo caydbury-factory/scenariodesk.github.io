@@ -80,6 +80,34 @@
 
         if (!form || !status || !button) return;
 
+        function applyPreparedArchiveProperty() {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("source") !== "archive") return;
+
+          const stored = sessionStorage.getItem("scenarioMinedProperty");
+          if (!stored) return;
+
+          try {
+            const property = JSON.parse(stored);
+            const title = form.querySelector("[name='title']");
+            const sourceType = form.querySelector("[name='sourceType']");
+            const logline = form.querySelector("[name='logline']");
+            const manuscriptText = form.querySelector("[name='manuscriptText']");
+            const notes = form.querySelector("[name='notes']");
+
+            if (title) title.value = property.title || "";
+            if (sourceType) sourceType.value = property.sourceType || "Pulp Magazine Story";
+            if (logline) logline.value = property.logline || "";
+            if (manuscriptText) manuscriptText.value = property.manuscriptText || "";
+            if (notes) notes.value = property.notes || "";
+
+            status.textContent = "The archive miner prepared this property. Add any notes, then submit it to the Scenario Department.";
+            status.className = "submission-status submission-status--success";
+          } catch (error) {
+            sessionStorage.removeItem("scenarioMinedProperty");
+          }
+        }
+
         function readLedger() {
           return new Promise((resolve, reject) => {
             const callbackName = `submitLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -172,6 +200,8 @@
             button.disabled = false;
           }
         }, true);
+
+        applyPreparedArchiveProperty();
       })();
     </script>
   </body>
