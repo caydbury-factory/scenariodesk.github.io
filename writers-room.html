@@ -243,7 +243,7 @@
           if (!text) return [];
 
           const normalized = text.replace(/\r/g, "\n");
-          const matches = [...normalized.matchAll(/(?:^|[\n\r]|\s)(?:\d+[\.)]\s+|Scene\s+\d+\s*[:\.)-]\s*)/gi)];
+          const matches = [...normalized.matchAll(/(?:^|[\n\r]|\s)(?:\d+[\.)]\s+|(?:Scene|Sequence|Key|Character)\s+\d+\s*[:\.)-]\s*)/gi)];
 
           if (!matches.length) {
             return normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
@@ -269,7 +269,7 @@
             const [rawTitle, ...rest] = item.split(/\s+[–-]\s+|:\s+/);
             const hasUsefulTitle = rest.length && rawTitle.length < 70;
             const title = type === "sequence"
-              ? `Scene ${String(index + 1).padStart(2, "0")}${hasUsefulTitle ? `: ${rawTitle}` : ""}`
+              ? `Sequence ${String(index + 1).padStart(2, "0")}${hasUsefulTitle ? `: ${rawTitle}` : ""}`
               : (hasUsefulTitle ? rawTitle : `Character ${String(index + 1).padStart(2, "0")}`);
             const body = hasUsefulTitle ? rest.join(" - ") : item;
 
