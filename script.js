@@ -191,7 +191,20 @@ function statusClass(status) {
 
 function propertyHref(property) {
   const key = property.propertyId || property.title || "dangerous-kisses";
+  const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
+  if (hasTreatment) {
+    return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
+  }
   return `writers-room.html?property=${encodeURIComponent(key)}`;
+}
+
+function parseSavedTreatment(property) {
+  if (!property || !property.treatmentJson) return null;
+  try {
+    return JSON.parse(property.treatmentJson);
+  } catch (error) {
+    return null;
+  }
 }
 
 function renderScenarioDesk(properties) {
@@ -203,12 +216,16 @@ function renderScenarioDesk(properties) {
   }
 
   board.innerHTML = properties.map((property, index) => {
-    const stamp = property.status || "Needs Reader";
+    const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
+    const stamp = hasTreatment
+      ? "Treatment Applied"
+      : (property.status || "Needs Reader");
     const source = property.sourceType || "Unclassified Property";
     const reader = property.reader || "Awaiting assignment";
     const score = property.suitabilityScore || "Pending";
-    const summary = property.logline || property.notes || "No synopsis has been entered for this property yet.";
+    const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
+    const actionLabel = hasTreatment ? "Open Treatment Room" : "Open Writers' Room";
 
     return `
       <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
@@ -222,7 +239,7 @@ function renderScenarioDesk(properties) {
           <dt>Score</dt><dd>${escapeHtml(score)}</dd>
         </dl>
         <p>${escapeHtml(summary)}</p>
-        <span class="button button--small">Open Writers' Room</span>
+        <span class="button button--small">${escapeHtml(actionLabel)}</span>
       </a>
     `;
   }).join("");
@@ -1023,6 +1040,15 @@ function renderLiveTreatmentProperty(property) {
   if (kicker) kicker.textContent = `Treatment Room - ${property.propertyId || "SPC"}`;
   treatmentTitle.textContent = title;
   if (treatmentLogline) treatmentLogline.textContent = logline;
+
+  const savedTreatment = parseSavedTreatment(property);
+  if (savedTreatment && officialTreatment) {
+    renderTreatmentDocument(property, savedTreatment, savedTreatment.author || "", property.propertyId || getTreatmentProperty());
+    if (prepareTreatment) {
+      prepareTreatment.textContent = "Official Treatment Filed";
+      prepareTreatment.disabled = true;
+    }
+  }
 }
 
 if (treatmentTitle) {
@@ -1063,8 +1089,13 @@ if (prepareTreatment && officialTreatment) {
       try {
         const payload = await requestOfficialTreatment(key, treatmentWritersForRequest());
         if (!payload || !payload.ok || !payload.treatment) throw new Error(payload && payload.error ? payload.error : "Treatment response was not OK.");
+        if (activeTreatmentProperty) {
+          activeTreatmentProperty.treatmentStatus = "Treatment Applied";
+          activeTreatmentProperty.treatmentUrl = `treatment-room.html?property=${encodeURIComponent(key)}`;
+          activeTreatmentProperty.treatmentJson = JSON.stringify(payload.treatment);
+        }
         renderTreatmentDocument(file, payload.treatment, authors, key);
-        prepareTreatment.textContent = "Official Treatment Prepared";
+        prepareTreatment.textContent = "Official Treatment Filed";
       } catch (error) {
         prepareTreatment.textContent = "Prepare the Official Treatment";
         prepareTreatment.disabled = false;
