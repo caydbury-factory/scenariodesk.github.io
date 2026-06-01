@@ -182,9 +182,6 @@
             <p id="archive-ledger-status" class="archive-live-status">Connecting to the Drive archive catalog...</p>
             <div class="workflow workflow--compact">
               <button type="button" id="select-archive-issue">Select Issue</button>
-              <button type="button" disabled>Extract Text</button>
-              <button type="button" disabled>Detect Stories</button>
-              <button type="button" disabled>Generate Cards</button>
             </div>
           </section>
         </div>
@@ -203,7 +200,7 @@
           </div>
           <form class="miner-form">
             <label>Mining Criteria
-              <textarea>Find stories with a clear protagonist, visible conflict, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
+              <textarea>Find stories with a clear protagonist, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
             </label>
             <button class="button" type="button" id="mine-issue">Mine Selected Issues</button>
           </form>
@@ -242,6 +239,7 @@
         const issueStatus = document.querySelector("#issue-status");
         const archiveResults = document.querySelector("#archive-results");
         const mineIssue = document.querySelector("#mine-issue");
+        const miningCriteria = document.querySelector(".miner-form textarea");
         const selectArchiveIssue = document.querySelector("#select-archive-issue");
         const selectedArchiveIssues = document.querySelector("#selected-archive-issues");
         let archiveRecords = [];
@@ -285,6 +283,43 @@
             };
 
             script.src = `${backendUrl}?action=archive&callback=${encodeURIComponent(callbackName)}`;
+            document.body.appendChild(script);
+          });
+        }
+
+        function mineArchiveIssues(issueIds, criteria) {
+          return new Promise((resolve, reject) => {
+            const callbackName = `archiveMiner_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const script = document.createElement("script");
+            const timeout = window.setTimeout(() => {
+              cleanup();
+              reject(new Error("Mining request timed out."));
+            }, 120000);
+
+            function cleanup() {
+              window.clearTimeout(timeout);
+              delete window[callbackName];
+              script.remove();
+            }
+
+            window[callbackName] = (payload) => {
+              cleanup();
+              resolve(payload);
+            };
+
+            script.onerror = () => {
+              cleanup();
+              reject(new Error("Mining request failed."));
+            };
+
+            const params = new URLSearchParams({
+              action: "mineArchive",
+              callback: callbackName,
+              archiveIds: issueIds.join(","),
+              criteria
+            });
+
+            script.src = `${backendUrl}?${params.toString()}`;
             document.body.appendChild(script);
           });
         }
@@ -429,23 +464,58 @@
         }
 
         if (mineIssue) {
-          mineIssue.addEventListener("click", () => {
+          mineIssue.addEventListener("click", async () => {
             if (!archiveResults) return;
             const issuesToMine = selectedIssues.length ? selectedIssues : (selectedIssue ? [selectedIssue] : []);
             if (!issuesToMine.length) return;
 
+            mineIssue.disabled = true;
             archiveResults.innerHTML = `
               <article class="report">
-                <p class="stamp stamp--green">Ready for Detection</p>
+                <p class="stamp stamp--green">Mining</p>
                 <h3>${issuesToMine.length === 1 ? escapeHtml(issuesToMine[0].title || "Selected Issue") : `${issuesToMine.length} Selected Issues`}</h3>
                 <dl>
                   <dt>Source Issue</dt><dd>${escapeHtml(issuesToMine.map((issue) => [issue.magazine, issue.year, issue.issue].filter(Boolean).join(", ")).join(" / "))}</dd>
                   <dt>Archive File</dt><dd>${issuesToMine.map((issue) => issue.fileLink ? `<a href="${escapeHtml(issue.fileLink)}" target="_blank" rel="noreferrer">${escapeHtml(issue.title || "Open in Drive")}</a>` : "No link recorded").join("<br>")}</dd>
                 </dl>
-                <p>The selected archive material is connected. The next pass will ask the AI miner to detect candidate stories and produce story cards with photoplay promise and suggested genre.</p>
-                <button class="button button--small" type="button" disabled>Detect Stories Coming Next</button>
+                <p>The magazine miner is reading the selected archive material and preparing candidate story cards.</p>
               </article>
             `;
+
+            try {
+              const payload = await mineArchiveIssues(
+                issuesToMine.map((issue) => issue.archiveId),
+                miningCriteria ? miningCriteria.value : ""
+              );
+
+              if (!payload || !payload.ok || !Array.isArray(payload.candidates)) {
+                throw new Error(payload && payload.error ? payload.error : "Mining response was not OK.");
+              }
+
+              archiveResults.innerHTML = payload.candidates.map((candidate, index) => `
+                <article class="report">
+                  <p class="stamp ${index === 0 ? "stamp--green" : ""}">${index === 0 ? "High Potential" : "Candidate"}</p>
+                  <h3>${escapeHtml(candidate.storyTitle || "Untitled Story")}</h3>
+                  <dl>
+                    <dt>Author</dt><dd>${escapeHtml(candidate.author || "Unknown")}</dd>
+                    <dt>Source Issue</dt><dd>${escapeHtml(candidate.sourceIssue || "Selected archive material")}</dd>
+                    <dt>Genre</dt><dd>${escapeHtml(candidate.suggestedGenre || "Unclassified Photoplay")}</dd>
+                  </dl>
+                  <p>${escapeHtml(candidate.photoplayPromise || "The miner found possible motion picture material, pending departmental review.")}</p>
+                  <a class="button button--small" href="submit-property.html">Mine This Story</a>
+                </article>
+              `).join("");
+            } catch (error) {
+              archiveResults.innerHTML = `
+                <article class="report">
+                  <p class="stamp">Mining Delayed</p>
+                  <h3>The miner could not finish this pass.</h3>
+                  <p>The selected issue may be too large or may not expose readable text to the archive clerk yet. Try one issue first, or use an OCR text/Google Docs file.</p>
+                </article>
+              `;
+            } finally {
+              mineIssue.disabled = false;
+            }
           });
         }
 
