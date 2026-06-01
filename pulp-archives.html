@@ -508,7 +508,10 @@
               );
 
               if (!payload || !payload.ok || !Array.isArray(payload.candidates)) {
-                throw new Error(payload && payload.error ? payload.error : "Mining response was not OK.");
+                const detail = payload
+                  ? JSON.stringify(payload).slice(0, 650)
+                  : "No response payload was returned.";
+                throw new Error(payload && payload.error ? payload.error : `Mining response was not OK. Response: ${detail}`);
               }
 
               archiveResults.innerHTML = payload.candidates.map((candidate, index) => `
