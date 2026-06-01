@@ -282,20 +282,38 @@ if (submissionForm && submissionStatus && submitPropertyButton) {
       await fetch(scenarioBackendUrl, {
         method: "POST",
         mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8"
-        },
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
       });
 
-      submissionStatus.textContent = "Property filed. The ledger will mark it Needs Reader.";
-      submissionStatus.className = "submission-status submission-status--success";
-      submissionForm.reset();
-      uploadLabel.textContent = "Place manuscript here - or paste text below";
+      submissionStatus.textContent = "Property filed. Sending the dossier to the Writers' Room...";
+
+      window.setTimeout(() => {
+        loadLedgerProperties()
+          .then((ledger) => {
+            if (!ledger || !ledger.ok) throw new Error("Ledger response was not OK.");
+            const properties = ledger.properties || [];
+            const matchingProperty = properties.find((property) =>
+              String(property.title || "").trim().toLowerCase() === payload.title.trim().toLowerCase() &&
+              String(property.sourceType || "").trim().toLowerCase() === payload.sourceType.trim().toLowerCase()
+            ) || properties.find((property) =>
+              String(property.title || "").trim().toLowerCase() === payload.title.trim().toLowerCase()
+            );
+
+            const propertyId = matchingProperty && matchingProperty.propertyId;
+            window.location.href = propertyId
+              ? `writers-room.html?property=${encodeURIComponent(propertyId)}&reader=auto`
+              : "scenario-desk.html";
+          })
+          .catch(() => {
+            submissionStatus.textContent = "Property filed. Return to the Scenario Desk to open the new file.";
+            submissionStatus.className = "submission-status submission-status--success";
+            submitPropertyButton.disabled = false;
+          });
+      }, 2200);
     } catch (error) {
       submissionStatus.textContent = "The filing clerk could not reach the ledger. Try once more.";
       submissionStatus.className = "submission-status submission-status--error";
-    } finally {
       submitPropertyButton.disabled = false;
     }
   });
@@ -417,6 +435,52 @@ const cathedralPhotoplaywrightVerdicts = [
 ];
 
 let activePhotoplaywrightVerdicts = defaultPhotoplaywrightVerdicts;
+let activeConferenceDecision = "treatments";
+
+const photoplaywrightRoster = {
+  marchmont: {
+    initials: "J.M.",
+    title: "Miss Jeanette Marchmont",
+    role: "Chief of Scenario Construction / Structure and Photoplay Architecture",
+    body: "The first question is whether this material can stand as a motion picture. It must have a protagonist whose desire pushes the action forward, a middle that complicates rather than repeats, and a climax that can be seen. I find playable material here, but the conference must watch the structure like a bank vault."
+  },
+  fairchild: {
+    initials: "F.F.",
+    title: "Miss Frances Fairchild",
+    role: "Director of Human Interest / Emotional Appeal and Audience Sympathy",
+    body: "The property will live or die by whether the audience cares before the machinery begins. I want suffering that can be seen, longing that costs something, and reconciliation or loss that arrives honestly. If the heart is made visible, the picture may carry."
+  },
+  ashcombe: {
+    initials: "C.A.",
+    title: "Miss Clara Ashcombe",
+    role: "Director of Society and Character / Women, Social Consequence, and Reputation",
+    body: "The social pressure is the richest ore. Reputation, class, family opinion, marriage, and public judgment can make every gesture dangerous. The women must not merely be decorated by the plot; they must exert pressure upon it."
+  },
+  carrington: {
+    initials: "W.C.",
+    title: "Mr. William Carrington",
+    role: "Director of Moral Drama / Ethical Conflict and Character Judgment",
+    body: "A story without a moral wound is only movement. This material needs a choice that exposes character under pressure. The final action must judge someone plainly: mercy, betrayal, sacrifice, confession, duty, or cowardice."
+  },
+  vane: {
+    initials: "A.V.",
+    title: "Miss Anita Vane",
+    role: "Director of Modern Audiences / Wit, Pace, and Entertainment",
+    body: "I am interested if the property can move. The premise needs pace, bright reversals, and enough wit to keep the audience leaning forward between the heavy blows. Commercial appeal is not vulgarity; it is rhythm."
+  },
+  sterling: {
+    initials: "J.S.",
+    title: "Miss June Sterling",
+    role: "Director of Romance and Destiny / Epic Emotion and Star Vehicles",
+    body: "The romance must feel inevitable and inconvenient. I want destiny, longing, sacrifice, and a part large enough for a star to suffer beautifully. If love changes the heroine's fate rather than merely rewarding her, there is photoplay promise."
+  },
+  thorncroft: {
+    initials: "B.T.",
+    title: "Miss Beulah Thorncroft",
+    role: "Director of Historical and Moral Pressure / Consequence, Duty, and Stakes",
+    body: "Actions must carry costs. The property must justify development by making duty heavier than comfort and consequence sharper than atmosphere. Someone must lose something that cannot be easily replaced."
+  }
+};
 
 const executiveVerdicts = {
   treatments: {
@@ -449,6 +513,56 @@ const propertyTitle = document.querySelector("#property-title");
 let activePropertyKey = "dangerous-kisses";
 let reconferenceCount = 0;
 let activeExecutiveVerdict = "treatments";
+
+function makeConferenceVerdicts(writerKeys) {
+  return writerKeys.map((key, index) => {
+    const writer = photoplaywrightRoster[key] || photoplaywrightRoster.marchmont;
+    const nextWriter = writerKeys[index + 1]
+      ? photoplaywrightRoster[writerKeys[index + 1]]
+      : null;
+
+    return {
+      initials: writer.initials,
+      next: nextWriter ? `Call in ${nextWriter.title} ->` : "Convene the Conference ->",
+      title: writer.title,
+      role: writer.role,
+      body: writer.body
+    };
+  });
+}
+
+function configureConferenceFromProperty(property = {}) {
+  const sourceText = [
+    property.title,
+    property.sourceType,
+    property.logline,
+    property.notes,
+    property.readerSynopsis,
+    property.keyDramaticSequences,
+    property.characterArchetypes
+  ].join(" ").toLowerCase();
+
+  const selected = ["marchmont"];
+  const add = (key) => {
+    if (!selected.includes(key)) selected.push(key);
+  };
+
+  if (/romance|love|marriage|destiny|heart|longing|sacrifice/.test(sourceText)) add("sterling");
+  if (/woman|women|society|class|reputation|family|heiress|matron|social/.test(sourceText)) add("ashcombe");
+  if (/moral|guilt|sin|confession|betrayal|duty|judgment|ethical/.test(sourceText)) add("carrington");
+  if (/history|war|inheritance|legacy|consequence|stakes|redemption|cost/.test(sourceText)) add("thorncroft");
+  if (/comedy|wit|satire|comic|pace|entertainment|modern/.test(sourceText)) add("vane");
+  if (/suffering|sympathy|mother|child|wound|reconciliation/.test(sourceText)) add("fairchild");
+
+  if (selected.length < 3) add("fairchild");
+  if (selected.length < 3) add("carrington");
+
+  activePhotoplaywrightVerdicts = makeConferenceVerdicts(selected.slice(0, 4));
+
+  const score = Number(String(property.suitabilityScore || "").match(/\d+/)?.[0] || 0);
+  const needsRepair = /weak|unclear|underdeveloped|thin|confusing|needs|repair|reconference|failed/.test(sourceText);
+  activeConferenceDecision = (score && score < 55) || needsRepair ? "reconference" : "treatments";
+}
 
 if (propertyTitle) {
   activePropertyKey = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
@@ -524,6 +638,10 @@ function decideExecutiveVerdict() {
   }
 
   if (activePropertyKey === "glass-duchess") return "reconference";
+  if (/^SPC-/i.test(activePropertyKey)) {
+    if (activeConferenceDecision === "reconference" && reconferenceCount >= 2) return "wastebasket";
+    return activeConferenceDecision;
+  }
   return "treatments";
 }
 
