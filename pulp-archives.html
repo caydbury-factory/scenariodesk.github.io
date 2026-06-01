@@ -35,6 +35,66 @@
         font-family: "Special Elite", monospace;
         line-height: 1.55;
       }
+
+      .miner-form .button,
+      .selected-issue .button {
+        width: fit-content;
+        color: #1d0d07;
+        background: linear-gradient(#d2a34d, #8f6426);
+        border: 1px solid var(--brass);
+      }
+
+      .selected-archive-list {
+        margin-top: 1.2rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(144, 97, 54, .24);
+      }
+
+      .selected-archive-list ul {
+        display: grid;
+        gap: .6rem;
+        margin: .6rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .selected-archive-list li {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: .2rem .75rem;
+        align-items: center;
+        padding: .7rem;
+        background: rgba(255, 252, 244, .62);
+        border: 1px solid rgba(97, 54, 24, .22);
+      }
+
+      .selected-archive-list span,
+      .selected-archive-list small {
+        display: block;
+      }
+
+      .selected-archive-list span {
+        color: #5a2618;
+        font-family: "Cinzel", Georgia, serif;
+        font-weight: 900;
+      }
+
+      .selected-archive-list small {
+        color: #7b5b41;
+        font-family: "Special Elite", monospace;
+      }
+
+      .selected-archive-list button {
+        grid-row: span 2;
+        min-height: 34px;
+        padding: .4rem .55rem;
+        color: #7d431c;
+        background: transparent;
+        border: 1px solid rgba(125, 67, 28, .38);
+        font-family: "Special Elite", monospace;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body class="archives-page">
@@ -96,6 +156,7 @@
                 <option>Argosy All-Story Weekly - May 12, 1928</option>
               </select>
             </label>
+            <button class="button button--small" type="button" id="select-archive-issue">Select Issue</button>
             <dl>
               <dt>Year</dt><dd id="issue-year">1928</dd>
               <dt>Issue</dt><dd id="issue-number">May 12</dd>
@@ -114,12 +175,18 @@
             <p class="eyebrow">Magazine Miner</p>
             <h2 id="miner-title">Mine the selected issue for motion picture material.</h2>
             <p>The miner reads the issue as a scenario editor would: hook first, then visible action, protagonist desire, spectacle, moral pressure, and suitability for treatment.</p>
+            <div class="selected-archive-list">
+              <p class="eyebrow">Selected Issues for Motion Picture Material</p>
+              <ul id="selected-archive-issues">
+                <li>No archive issues selected yet.</li>
+              </ul>
+            </div>
           </div>
           <form class="miner-form">
             <label>Mining Criteria
               <textarea>Find stories with a clear protagonist, visible conflict, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
             </label>
-            <button type="button" id="mine-issue">Mine Selected Issue</button>
+            <button class="button" type="button" id="mine-issue">Mine Selected Issues</button>
           </form>
         </section>
 
@@ -156,9 +223,12 @@
         const issueStatus = document.querySelector("#issue-status");
         const archiveResults = document.querySelector("#archive-results");
         const mineIssue = document.querySelector("#mine-issue");
+        const selectArchiveIssue = document.querySelector("#select-archive-issue");
+        const selectedArchiveIssues = document.querySelector("#selected-archive-issues");
         let archiveRecords = [];
         let selectedMagazine = "";
         let selectedIssue = null;
+        let selectedIssues = [];
 
         function escapeHtml(value) {
           return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -280,6 +350,30 @@
           }
         }
 
+        function renderSelectedIssues() {
+          if (!selectedArchiveIssues) return;
+
+          if (!selectedIssues.length) {
+            selectedArchiveIssues.innerHTML = "<li>No archive issues selected yet.</li>";
+            return;
+          }
+
+          selectedArchiveIssues.innerHTML = selectedIssues.map((issue) => `
+            <li>
+              <span>${escapeHtml(issue.title || "Selected Issue")}</span>
+              <small>${escapeHtml([issue.magazine, issue.year, issue.issue].filter(Boolean).join(" / "))}</small>
+              <button type="button" data-remove-issue="${escapeHtml(issue.archiveId)}" aria-label="Remove ${escapeHtml(issue.title || "issue")}">Remove</button>
+            </li>
+          `).join("");
+
+          selectedArchiveIssues.querySelectorAll("[data-remove-issue]").forEach((button) => {
+            button.addEventListener("click", () => {
+              selectedIssues = selectedIssues.filter((issue) => issue.archiveId !== button.dataset.removeIssue);
+              renderSelectedIssues();
+            });
+          });
+        }
+
         function renderArchiveStats() {
           const statBoxes = document.querySelectorAll(".archive-stats div");
           const magazines = new Set(archiveRecords.map((record) => record.magazine).filter(Boolean));
@@ -295,18 +389,41 @@
           if (statBoxes[3]) statBoxes[3].querySelector("span").textContent = "Drive Catalog";
         }
 
+        if (selectArchiveIssue) {
+          selectArchiveIssue.addEventListener("click", () => {
+            if (!selectedIssue || !status) return;
+
+            if (selectedIssues.some((issue) => issue.archiveId === selectedIssue.archiveId)) {
+              status.textContent = "That issue is already on the motion picture material list.";
+              return;
+            }
+
+            if (selectedIssues.length >= 5) {
+              status.textContent = "The miner can hold five selected issues at a time.";
+              return;
+            }
+
+            selectedIssues.push(selectedIssue);
+            status.textContent = `${selectedIssue.title || "Archive issue"} added to the motion picture material list.`;
+            renderSelectedIssues();
+          });
+        }
+
         if (mineIssue) {
           mineIssue.addEventListener("click", () => {
-            if (!selectedIssue || !archiveResults) return;
+            if (!archiveResults) return;
+            const issuesToMine = selectedIssues.length ? selectedIssues : (selectedIssue ? [selectedIssue] : []);
+            if (!issuesToMine.length) return;
+
             archiveResults.innerHTML = `
               <article class="report">
                 <p class="stamp stamp--green">Ready for Detection</p>
-                <h3>${escapeHtml(selectedIssue.title || "Selected Issue")}</h3>
+                <h3>${issuesToMine.length === 1 ? escapeHtml(issuesToMine[0].title || "Selected Issue") : `${issuesToMine.length} Selected Issues`}</h3>
                 <dl>
-                  <dt>Source Issue</dt><dd>${escapeHtml([selectedIssue.magazine, selectedIssue.year, selectedIssue.issue].filter(Boolean).join(", "))}</dd>
-                  <dt>Archive File</dt><dd>${selectedIssue.fileLink ? `<a href="${escapeHtml(selectedIssue.fileLink)}" target="_blank" rel="noreferrer">Open in Drive</a>` : "No link recorded"}</dd>
+                  <dt>Source Issue</dt><dd>${escapeHtml(issuesToMine.map((issue) => [issue.magazine, issue.year, issue.issue].filter(Boolean).join(", ")).join(" / "))}</dd>
+                  <dt>Archive File</dt><dd>${issuesToMine.map((issue) => issue.fileLink ? `<a href="${escapeHtml(issue.fileLink)}" target="_blank" rel="noreferrer">${escapeHtml(issue.title || "Open in Drive")}</a>` : "No link recorded").join("<br>")}</dd>
                 </dl>
-                <p>The selected issue is connected. The next pass will ask the AI miner to detect candidate stories and produce story cards with photoplay promise and suggested genre.</p>
+                <p>The selected archive material is connected. The next pass will ask the AI miner to detect candidate stories and produce story cards with photoplay promise and suggested genre.</p>
                 <button class="button button--small" type="button" disabled>Detect Stories Coming Next</button>
               </article>
             `;
