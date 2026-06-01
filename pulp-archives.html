@@ -1,10 +1,41 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pulp Archives | The Scenario Department</title>
     <link rel="stylesheet" href="styles.css" />
+    <style>
+      .archive-picker {
+        display: grid;
+        gap: .45rem;
+        margin: 1rem 0;
+        color: var(--brown);
+        font-family: "Cinzel", Georgia, serif;
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+      }
+
+      .archive-picker select {
+        min-height: 44px;
+        width: 100%;
+        border: 1px solid rgba(97, 54, 24, .35);
+        background: rgba(255, 252, 244, .72);
+        color: var(--ink);
+        font: 400 .92rem "Special Elite", monospace;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      .archive-live-status {
+        margin: 1rem 0 0;
+        color: var(--brown);
+        font-family: "Special Elite", monospace;
+        line-height: 1.55;
+      }
+    </style>
   </head>
   <body class="archives-page">
     <nav class="nav" aria-label="Primary">
@@ -38,7 +69,7 @@
         </div>
 
         <div class="archive-console">
-          <aside class="archive-shelves" aria-label="Archive holdings">
+          <aside class="archive-shelves" id="archive-shelves" aria-label="Archive holdings">
             <button class="archive-issue is-selected" type="button" data-issue="argosy">
               <span>Argosy All-Story Weekly</span>
               <small>1928 / May 12 / PDF indexed</small>
@@ -60,12 +91,18 @@
           <section class="selected-issue" aria-live="polite">
             <p class="eyebrow">Selected Issue</p>
             <h2 id="issue-title">Argosy All-Story Weekly</h2>
+            <label class="archive-picker">Select Issue
+              <select id="archive-issue-select">
+                <option>Argosy All-Story Weekly - May 12, 1928</option>
+              </select>
+            </label>
             <dl>
               <dt>Year</dt><dd id="issue-year">1928</dd>
               <dt>Issue</dt><dd id="issue-number">May 12</dd>
-              <dt>PDF</dt><dd id="issue-pdf">argosy-allstory-1928-05-12.pdf</dd>
+              <dt>File</dt><dd id="issue-pdf">argosy-allstory-1928-05-12.pdf</dd>
               <dt>Status</dt><dd id="issue-status">Indexed and ready for mining</dd>
             </dl>
+            <p id="archive-ledger-status" class="archive-live-status">Connecting to the Drive archive catalog...</p>
             <div class="workflow workflow--compact">
               <span>Select Issue</span><span>Extract Text</span><span>Detect Stories</span><span>Generate Cards</span>
             </div>
@@ -106,5 +143,195 @@
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
     <script src="script.js"></script>
+    <script>
+      (() => {
+        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+        const shelves = document.querySelector("#archive-shelves");
+        const issueSelect = document.querySelector("#archive-issue-select");
+        const status = document.querySelector("#archive-ledger-status");
+        const issueTitle = document.querySelector("#issue-title");
+        const issueYear = document.querySelector("#issue-year");
+        const issueNumber = document.querySelector("#issue-number");
+        const issueFile = document.querySelector("#issue-pdf");
+        const issueStatus = document.querySelector("#issue-status");
+        const archiveResults = document.querySelector("#archive-results");
+        const mineIssue = document.querySelector("#mine-issue");
+        let archiveRecords = [];
+        let selectedMagazine = "";
+        let selectedIssue = null;
+
+        function escapeHtml(value) {
+          return String(value || "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "\"": "&quot;",
+            "'": "&#39;"
+          })[char]);
+        }
+
+        function loadArchive() {
+          return new Promise((resolve, reject) => {
+            const callbackName = `pulpArchive_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const script = document.createElement("script");
+            const timeout = window.setTimeout(() => {
+              cleanup();
+              reject(new Error("Archive request timed out."));
+            }, 16000);
+
+            function cleanup() {
+              window.clearTimeout(timeout);
+              delete window[callbackName];
+              script.remove();
+            }
+
+            window[callbackName] = (payload) => {
+              cleanup();
+              resolve(payload);
+            };
+
+            script.onerror = () => {
+              cleanup();
+              reject(new Error("Archive request failed."));
+            };
+
+            script.src = `${backendUrl}?action=archive&callback=${encodeURIComponent(callbackName)}`;
+            document.body.appendChild(script);
+          });
+        }
+
+        function magazineGroups() {
+          return archiveRecords.reduce((groups, record) => {
+            const magazine = record.magazine || "Uncataloged";
+            if (!groups[magazine]) groups[magazine] = [];
+            groups[magazine].push(record);
+            return groups;
+          }, {});
+        }
+
+        function issueLabel(record) {
+          const parts = [record.year, record.issue].filter(Boolean).join(" / ");
+          return parts ? `${record.title} (${parts})` : record.title;
+        }
+
+        function renderMagazineShelves() {
+          const groups = magazineGroups();
+          const magazines = Object.keys(groups).sort();
+          if (!magazines.length || !shelves) return;
+
+          selectedMagazine = selectedMagazine || magazines[0];
+          shelves.innerHTML = magazines.map((magazine) => {
+            const issues = groups[magazine] || [];
+            const years = [...new Set(issues.map((issue) => issue.year).filter(Boolean))].sort();
+            const yearLabel = years.length > 1 ? `${years[0]}-${years[years.length - 1]}` : (years[0] || "Year uncataloged");
+            return `
+              <button class="archive-issue ${magazine === selectedMagazine ? "is-selected" : ""}" type="button" data-magazine="${escapeHtml(magazine)}">
+                <span>${escapeHtml(magazine)}</span>
+                <small>${escapeHtml(yearLabel)} / ${issues.length} files indexed</small>
+              </button>
+            `;
+          }).join("");
+
+          shelves.querySelectorAll("[data-magazine]").forEach((button) => {
+            button.addEventListener("click", () => {
+              selectedMagazine = button.dataset.magazine;
+              selectedIssue = null;
+              renderMagazineShelves();
+              renderIssuePicker();
+            });
+          });
+        }
+
+        function renderIssuePicker() {
+          const issues = archiveRecords
+            .filter((record) => record.magazine === selectedMagazine)
+            .sort((a, b) => String(a.year || "").localeCompare(String(b.year || "")) || String(a.title || "").localeCompare(String(b.title || "")));
+
+          if (!issues.length || !issueSelect) return;
+
+          selectedIssue = selectedIssue || issues[0];
+          issueSelect.innerHTML = issues.map((issue) => `
+            <option value="${escapeHtml(issue.archiveId)}" ${issue.archiveId === selectedIssue.archiveId ? "selected" : ""}>
+              ${escapeHtml(issueLabel(issue))}
+            </option>
+          `).join("");
+
+          issueSelect.onchange = () => {
+            selectedIssue = issues.find((issue) => issue.archiveId === issueSelect.value) || issues[0];
+            renderSelectedIssue();
+          };
+
+          renderSelectedIssue();
+        }
+
+        function renderSelectedIssue() {
+          if (!selectedIssue) return;
+
+          issueTitle.textContent = selectedIssue.title || selectedIssue.magazine || "Selected Archive File";
+          issueYear.textContent = selectedIssue.year || "Uncataloged";
+          issueNumber.textContent = selectedIssue.issue || "Issue date not parsed";
+          issueFile.innerHTML = selectedIssue.fileLink
+            ? `<a href="${escapeHtml(selectedIssue.fileLink)}" target="_blank" rel="noreferrer">${escapeHtml(selectedIssue.title || "Open archive file")}</a>`
+            : escapeHtml(selectedIssue.title || "No file link recorded");
+          issueStatus.textContent = selectedIssue.status || "Indexed";
+
+          if (status) {
+            status.textContent = `${selectedIssue.magazine || "Archive"} file selected from the live Drive catalog.`;
+          }
+        }
+
+        function renderArchiveStats() {
+          const statBoxes = document.querySelectorAll(".archive-stats div");
+          const magazines = new Set(archiveRecords.map((record) => record.magazine).filter(Boolean));
+          const years = new Set(archiveRecords.map((record) => record.year).filter(Boolean));
+
+          if (statBoxes[0]) statBoxes[0].querySelector("strong").textContent = String(archiveRecords.length);
+          if (statBoxes[0]) statBoxes[0].querySelector("span").textContent = "Indexed Files";
+          if (statBoxes[1]) statBoxes[1].querySelector("strong").textContent = String(magazines.size);
+          if (statBoxes[1]) statBoxes[1].querySelector("span").textContent = "Magazine Runs";
+          if (statBoxes[2]) statBoxes[2].querySelector("strong").textContent = String(years.size);
+          if (statBoxes[2]) statBoxes[2].querySelector("span").textContent = "Cataloged Years";
+          if (statBoxes[3]) statBoxes[3].querySelector("strong").textContent = "Live";
+          if (statBoxes[3]) statBoxes[3].querySelector("span").textContent = "Drive Catalog";
+        }
+
+        if (mineIssue) {
+          mineIssue.addEventListener("click", () => {
+            if (!selectedIssue || !archiveResults) return;
+            archiveResults.innerHTML = `
+              <article class="report">
+                <p class="stamp stamp--green">Ready for Detection</p>
+                <h3>${escapeHtml(selectedIssue.title || "Selected Issue")}</h3>
+                <dl>
+                  <dt>Source Issue</dt><dd>${escapeHtml([selectedIssue.magazine, selectedIssue.year, selectedIssue.issue].filter(Boolean).join(", "))}</dd>
+                  <dt>Archive File</dt><dd>${selectedIssue.fileLink ? `<a href="${escapeHtml(selectedIssue.fileLink)}" target="_blank" rel="noreferrer">Open in Drive</a>` : "No link recorded"}</dd>
+                </dl>
+                <p>The selected issue is connected. The next pass will ask the AI miner to detect candidate stories and produce story cards with photoplay promise and suggested genre.</p>
+                <button class="button button--small" type="button" disabled>Detect Stories Coming Next</button>
+              </article>
+            `;
+          });
+        }
+
+        loadArchive()
+          .then((payload) => {
+            if (!payload || !payload.ok || !Array.isArray(payload.archive)) {
+              throw new Error("Archive response was not OK.");
+            }
+
+            archiveRecords = payload.archive.filter((record) => record && record.archiveId);
+            if (!archiveRecords.length) throw new Error("Archive catalog is empty.");
+
+            renderArchiveStats();
+            renderMagazineShelves();
+            renderIssuePicker();
+          })
+          .catch(() => {
+            if (status) {
+              status.textContent = "The live Drive archive could not be reached, so the sample archive remains on the desk.";
+            }
+          });
+      })();
+    </script>
   </body>
 </html>
