@@ -36,14 +36,6 @@
         line-height: 1.55;
       }
 
-      .miner-form .button,
-      .selected-issue .button {
-        width: fit-content;
-        color: #1d0d07;
-        background: linear-gradient(#d2a34d, #8f6426);
-        border: 1px solid var(--brass);
-      }
-
       .selected-archive-list {
         margin-top: 1.2rem;
         padding-top: 1rem;
@@ -94,6 +86,31 @@
         font-family: "Special Elite", monospace;
         text-transform: uppercase;
         cursor: pointer;
+      }
+
+      .workflow--compact button,
+      .miner-form .button {
+        min-height: 44px;
+        padding: .75rem .55rem;
+        color: #fff4d7;
+        background: #5b2415;
+        border: 1px solid #c99108;
+        border-radius: 0;
+        font-family: "Special Elite", monospace;
+        text-align: center;
+        text-transform: none;
+        box-shadow: none;
+        cursor: pointer;
+      }
+
+      .workflow--compact button:hover,
+      .miner-form .button:hover {
+        background: #7a351d;
+      }
+
+      .miner-form .button {
+        width: fit-content;
+        text-transform: uppercase;
       }
     </style>
   </head>
@@ -156,7 +173,6 @@
                 <option>Argosy All-Story Weekly - May 12, 1928</option>
               </select>
             </label>
-            <button class="button button--small" type="button" id="select-archive-issue">Select Issue</button>
             <dl>
               <dt>Year</dt><dd id="issue-year">1928</dd>
               <dt>Issue</dt><dd id="issue-number">May 12</dd>
@@ -165,7 +181,10 @@
             </dl>
             <p id="archive-ledger-status" class="archive-live-status">Connecting to the Drive archive catalog...</p>
             <div class="workflow workflow--compact">
-              <span>Select Issue</span><span>Extract Text</span><span>Detect Stories</span><span>Generate Cards</span>
+              <button type="button" id="select-archive-issue">Select Issue</button>
+              <button type="button" disabled>Extract Text</button>
+              <button type="button" disabled>Detect Stories</button>
+              <button type="button" disabled>Generate Cards</button>
             </div>
           </section>
         </div>
