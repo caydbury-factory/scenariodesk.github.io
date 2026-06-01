@@ -436,6 +436,8 @@ const cathedralPhotoplaywrightVerdicts = [
 
 let activePhotoplaywrightVerdicts = defaultPhotoplaywrightVerdicts;
 let activeConferenceDecision = "treatments";
+let activeConferenceProperty = null;
+let activeConferenceWriterKeys = ["marchmont", "fairchild", "carrington"];
 
 const photoplaywrightRoster = {
   marchmont: {
@@ -522,6 +524,7 @@ function makeConferenceVerdicts(writerKeys) {
       : null;
 
     return {
+      key,
       initials: writer.initials,
       next: nextWriter ? `Call in ${nextWriter.title} ->` : "Convene the Conference ->",
       title: writer.title,
@@ -532,6 +535,7 @@ function makeConferenceVerdicts(writerKeys) {
 }
 
 function configureConferenceFromProperty(property = {}) {
+  activeConferenceProperty = property;
   const sourceText = [
     property.title,
     property.sourceType,
@@ -557,11 +561,77 @@ function configureConferenceFromProperty(property = {}) {
   if (selected.length < 3) add("fairchild");
   if (selected.length < 3) add("carrington");
 
-  activePhotoplaywrightVerdicts = makeConferenceVerdicts(selected.slice(0, 4));
+  activeConferenceWriterKeys = selected.slice(0, 4);
+  activePhotoplaywrightVerdicts = makeConferenceVerdicts(activeConferenceWriterKeys);
 
   const score = Number(String(property.suitabilityScore || "").match(/\d+/)?.[0] || 0);
   const needsRepair = /weak|unclear|underdeveloped|thin|confusing|needs|repair|reconference|failed/.test(sourceText);
   activeConferenceDecision = (score && score < 55) || needsRepair ? "reconference" : "treatments";
+}
+
+function requestConferenceVerdicts() {
+  return new Promise((resolve, reject) => {
+    if (!/^SPC-/i.test(activePropertyKey)) {
+      resolve(null);
+      return;
+    }
+
+    const callbackName = `scenarioConference_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Conference request timed out."));
+    }, 90000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Conference request failed."));
+    };
+
+    const writers = activeConferenceWriterKeys.join(",");
+    script.src = `${scenarioBackendUrl}?action=runConference&propertyId=${encodeURIComponent(activePropertyKey)}&writers=${encodeURIComponent(writers)}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
+function applyConferenceVerdicts(payload) {
+  if (!payload || !payload.ok || !Array.isArray(payload.writers) || !payload.writers.length) return false;
+
+  const writers = payload.writers.slice(0, 4);
+  activePhotoplaywrightVerdicts = writers.map((writer, index) => {
+    const nextWriter = writers[index + 1];
+    const fallback = photoplaywrightRoster[writer.key] || {};
+
+    return {
+      key: writer.key || fallback.key,
+      initials: writer.initials || fallback.initials || "S.D.",
+      next: nextWriter ? `Call in ${nextWriter.title || "the next photoplaywright"} ->` : "Convene the Conference ->",
+      title: writer.title || fallback.title || "Scenario Department Photoplaywright",
+      role: writer.role || fallback.role || "Photoplay Conference Verdict",
+      body: writer.body || writer.verdict || fallback.body || "The photoplaywright has filed a memorandum for conference."
+    };
+  });
+
+  if (payload.decision || payload.finalDecision) {
+    activeConferenceDecision = payload.decision || payload.finalDecision;
+  }
+
+  if (payload.quote && executiveVerdicts[activeConferenceDecision]) {
+    executiveVerdicts[activeConferenceDecision].quote = payload.quote;
+  }
+
+  return true;
 }
 
 if (propertyTitle) {
@@ -714,7 +784,7 @@ function startReconferenceClock() {
 }
 
 if (sendLetter && readerRoster && readerVerdict && nextWriter) {
-  sendLetter.addEventListener("click", () => {
+  sendLetter.addEventListener("click", async () => {
     readerRoster.classList.remove("is-locked");
     readerVerdict.innerHTML = `
       <p class="eyebrow">Writers' Verdicts</p>
@@ -724,6 +794,28 @@ if (sendLetter && readerRoster && readerVerdict && nextWriter) {
     if (conferenceHeading) conferenceHeading.textContent = "Conference letters are out.";
     sendLetter.textContent = "Conference Letter Sent";
     sendLetter.disabled = true;
+
+    if (/^SPC-/i.test(activePropertyKey)) {
+      readerVerdict.innerHTML = `
+        <p class="eyebrow">Writers' Verdicts</p>
+        <h3>The conference letter is being answered.</h3>
+        <p>The interested photoplaywrights are reading the filed synopsis and preparing property-specific memoranda.</p>
+      `;
+
+      try {
+        const payload = await requestConferenceVerdicts();
+        if (applyConferenceVerdicts(payload)) {
+          if (conferenceHeading) conferenceHeading.textContent = "Photoplaywright replies received.";
+        }
+      } catch (error) {
+        readerVerdict.innerHTML = `
+          <p class="eyebrow">Writers' Verdicts</p>
+          <h3>The conference clerk could not reach the upstairs line.</h3>
+          <p>The room will proceed with its standing departmental notes until the live conference action is installed.</p>
+        `;
+      }
+    }
+
     window.setTimeout(() => {
       photoplaywrightIndex = 0;
       renderPhotoplaywright(photoplaywrightIndex);
