@@ -294,7 +294,7 @@
             const timeout = window.setTimeout(() => {
               cleanup();
               reject(new Error("Mining request timed out."));
-            }, 120000);
+            }, 180000);
 
             function cleanup() {
               window.clearTimeout(timeout);
@@ -543,7 +543,8 @@
                 <article class="report">
                   <p class="stamp">Mining Delayed</p>
                   <h3>The miner could not finish this pass.</h3>
-                  <p>The selected issue may be too large or may not expose readable text to the archive clerk yet. Try one issue first, or use an OCR text/Google Docs file.</p>
+                  <p>The selected issue may be too large, the packet may be too ambitious, or the archive clerk may need a cleaner pass.</p>
+                  <p><em>${escapeHtml(error.message || "No detailed error was returned.")}</em></p>
                 </article>
               `;
             } finally {
