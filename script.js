@@ -720,11 +720,15 @@ function showExecutiveVerdict(kind) {
   activeExecutiveVerdict = verdict.type;
   if (!finalEvaluation || !finalStamp || !finalQuote || !finalAction) return;
 
+  const actionHref = verdict.type === "treatments" && /^SPC-/i.test(activePropertyKey)
+    ? `treatment-room.html?property=${encodeURIComponent(activePropertyKey)}`
+    : verdict.href;
+
   finalStamp.textContent = verdict.stamp;
   finalStamp.className = verdict.className;
   finalQuote.textContent = verdict.quote;
   finalAction.textContent = verdict.action;
-  finalAction.href = verdict.href;
+  finalAction.href = actionHref;
   finalEvaluation.hidden = false;
   nextWriter.hidden = true;
   if (conferenceHeading) {
@@ -875,6 +879,7 @@ const treatmentChecks = document.querySelectorAll("#treatment-writers input[type
 const selectedCount = document.querySelector("#selected-count");
 const prepareTreatment = document.querySelector("#prepare-treatment");
 const officialTreatment = document.querySelector("#official-treatment");
+let activeTreatmentProperty = null;
 
 const treatmentBlueprints = {
   "dangerous-kisses": {
@@ -913,6 +918,7 @@ const treatmentBlueprints = {
 
 function getTreatmentProperty() {
   const key = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
+  if (/^SPC-/i.test(key)) return key;
   return propertyFiles[key] ? key : "dangerous-kisses";
 }
 
@@ -929,50 +935,145 @@ function updateTreatmentSelection() {
   if (prepareTreatment) prepareTreatment.disabled = selected.length < 2 || selected.length > 4;
 }
 
+function treatmentWritersForRequest() {
+  return selectedTreatmentWriters().map((check) => ({
+    name: check.value,
+    role: check.dataset.role || ""
+  }));
+}
+
+function renderTreatmentDocument(file, treatment, authors, key) {
+  const blueprint = treatment || treatmentBlueprints[key] || treatmentBlueprints["dangerous-kisses"];
+  const cast = Array.isArray(blueprint.cast) ? blueprint.cast : [];
+  const reels = Array.isArray(blueprint.reels) ? blueprint.reels : [];
+
+  document.querySelector("#treatment-doc-title").textContent = blueprint.title || file.title;
+  document.querySelector("#treatment-doc-author").textContent = blueprint.author || `${authors}. Original material credited according to the property file.`;
+  document.querySelector("#treatment-doc-type").textContent = blueprint.type || "Photoplay Treatment";
+  document.querySelector("#treatment-doc-reels").textContent = blueprint.footageReels || blueprint.reelsEstimate || "The Standard Feature - 5 reels, 5,000 feet, 55 to 75 minutes";
+  document.querySelector("#treatment-doc-theme").textContent = blueprint.theme || file.logline;
+
+  document.querySelector("#treatment-cast").innerHTML = cast.map((item) => {
+    const name = Array.isArray(item) ? item[0] : item.name;
+    const body = Array.isArray(item) ? item[1] : item.description;
+    return `
+      <article>
+        <h3>${escapeHtml(name || "Dramatis Persona")}</h3>
+        <p>${escapeHtml(body || "")}</p>
+      </article>
+    `;
+  }).join("");
+
+  document.querySelector("#reel-breakdown").innerHTML = reels.map((item) => {
+    const label = Array.isArray(item) ? item[0] : item.label;
+    const body = Array.isArray(item) ? item[1] : item.body;
+    return `
+      <article>
+        <h3>${escapeHtml(label || "Treatment Movement")}</h3>
+        <p>${escapeHtml(body || "")}</p>
+      </article>
+    `;
+  }).join("");
+
+  officialTreatment.hidden = false;
+  const upstairs = officialTreatment.querySelector(".treatment-signoff .button");
+  if (upstairs) upstairs.href = `carstairs-office.html?property=${encodeURIComponent(key)}`;
+  officialTreatment.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function requestOfficialTreatment(propertyId, writers) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioTreatment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Treatment request timed out."));
+    }, 120000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Treatment request failed."));
+    };
+
+    script.src = `${scenarioBackendUrl}?action=runTreatment&propertyId=${encodeURIComponent(propertyId)}&writers=${encodeURIComponent(JSON.stringify(writers))}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
+function renderLiveTreatmentProperty(property) {
+  if (!property || !treatmentTitle) return;
+
+  activeTreatmentProperty = property;
+  const title = property.title || "Untitled Property";
+  const logline = property.logline || property.readerSynopsis || "No logline has been entered for this property yet.";
+  const kicker = document.querySelector(".treatment-property-head .eyebrow");
+
+  document.title = `${title} | Treatment Room`;
+  if (kicker) kicker.textContent = `Treatment Room - ${property.propertyId || "SPC"}`;
+  treatmentTitle.textContent = title;
+  if (treatmentLogline) treatmentLogline.textContent = logline;
+}
+
 if (treatmentTitle) {
   const key = getTreatmentProperty();
-  const file = propertyFiles[key];
-  treatmentTitle.textContent = file.title;
-  if (treatmentLogline) treatmentLogline.textContent = file.logline;
+  if (/^SPC-/i.test(key)) {
+    loadLedgerProperties()
+      .then((payload) => {
+        if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+        const property = (payload.properties || []).find((item) =>
+          String(item.propertyId || "").toLowerCase() === key.toLowerCase()
+        );
+        if (property) renderLiveTreatmentProperty(property);
+      })
+      .catch(() => {
+        const kicker = document.querySelector(".treatment-property-head .eyebrow");
+        if (kicker) kicker.textContent = "Treatment Room - ledger unavailable";
+      });
+  } else {
+    const file = propertyFiles[key];
+    treatmentTitle.textContent = file.title;
+    if (treatmentLogline) treatmentLogline.textContent = file.logline;
+  }
   treatmentChecks.forEach((check) => check.addEventListener("change", updateTreatmentSelection));
   updateTreatmentSelection();
 }
 
 if (prepareTreatment && officialTreatment) {
-  prepareTreatment.addEventListener("click", () => {
+  prepareTreatment.addEventListener("click", async () => {
     const key = getTreatmentProperty();
-    const file = propertyFiles[key];
-    const blueprint = treatmentBlueprints[key] || treatmentBlueprints["dangerous-kisses"];
+    const file = activeTreatmentProperty || propertyFiles[key] || propertyFiles["dangerous-kisses"];
     const selected = selectedTreatmentWriters();
-    const lengthText = key === "cathedral-clock"
-      ? "The Standard Feature - 5 reels, 5,000 feet, 55 to 75 minutes"
-      : "The Standard Feature - 5 reels, 5,000 feet, 55 to 75 minutes";
     const authors = selected.map((check) => `${check.value} (${check.dataset.role})`).join("; ");
 
-    document.querySelector("#treatment-doc-title").textContent = file.title;
-    document.querySelector("#treatment-doc-author").textContent = `${authors}. Original material credited according to the property file.`;
-    document.querySelector("#treatment-doc-type").textContent = blueprint.type;
-    document.querySelector("#treatment-doc-reels").textContent = lengthText;
-    document.querySelector("#treatment-doc-theme").textContent = blueprint.theme;
+    if (/^SPC-/i.test(key)) {
+      prepareTreatment.disabled = true;
+      prepareTreatment.textContent = "The Treatment Is Being Prepared";
 
-    document.querySelector("#treatment-cast").innerHTML = blueprint.cast.map(([name, body]) => `
-      <article>
-        <h3>${name}</h3>
-        <p>${body}</p>
-      </article>
-    `).join("");
+      try {
+        const payload = await requestOfficialTreatment(key, treatmentWritersForRequest());
+        if (!payload || !payload.ok || !payload.treatment) throw new Error(payload && payload.error ? payload.error : "Treatment response was not OK.");
+        renderTreatmentDocument(file, payload.treatment, authors, key);
+        prepareTreatment.textContent = "Official Treatment Prepared";
+      } catch (error) {
+        prepareTreatment.textContent = "Prepare the Official Treatment";
+        prepareTreatment.disabled = false;
+        renderTreatmentDocument(file, treatmentBlueprints["dangerous-kisses"], authors, key);
+      }
+      return;
+    }
 
-    document.querySelector("#reel-breakdown").innerHTML = blueprint.reels.map(([label, body]) => `
-      <article>
-        <h3>${label}</h3>
-        <p>${body}</p>
-      </article>
-    `).join("");
-
-    officialTreatment.hidden = false;
-    const upstairs = officialTreatment.querySelector(".treatment-signoff .button");
-    if (upstairs) upstairs.href = `carstairs-office.html?property=${key}`;
-    officialTreatment.scrollIntoView({ behavior: "smooth", block: "start" });
+    renderTreatmentDocument(file, treatmentBlueprints[key] || treatmentBlueprints["dangerous-kisses"], authors, key);
   });
 }
 
