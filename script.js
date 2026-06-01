@@ -191,6 +191,10 @@ function statusClass(status) {
 
 function propertyHref(property) {
   const key = property.propertyId || property.title || "dangerous-kisses";
+  const hasCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|executive rewrite|wastebasket/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
+  if (hasCarstairs) {
+    return `carstairs-office.html?property=${encodeURIComponent(key)}`;
+  }
   const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
   if (hasTreatment) {
     return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
@@ -207,6 +211,15 @@ function parseSavedTreatment(property) {
   }
 }
 
+function parseSavedCarstairs(property) {
+  if (!property || !property.carstairsJson) return null;
+  try {
+    return JSON.parse(property.carstairsJson);
+  } catch (error) {
+    return null;
+  }
+}
+
 function renderScenarioDesk(properties) {
   const board = document.querySelector("#property-board");
   const status = document.querySelector("#desk-ledger-status");
@@ -216,8 +229,12 @@ function renderScenarioDesk(properties) {
   }
 
   board.innerHTML = properties.map((property, index) => {
+    const savedCarstairs = parseSavedCarstairs(property);
+    const hasCarstairs = Boolean(savedCarstairs) || /greenlit|executive rewrite|wastebasket/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
     const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
-    const stamp = hasTreatment
+    const stamp = hasCarstairs
+      ? (savedCarstairs && savedCarstairs.statusLabel ? savedCarstairs.statusLabel : (property.status || "Greenlit"))
+      : hasTreatment
       ? "Treatment Applied"
       : (property.status || "Needs Reader");
     const source = property.sourceType || "Unclassified Property";
@@ -225,7 +242,7 @@ function renderScenarioDesk(properties) {
     const score = property.suitabilityScore || "Pending";
     const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
-    const actionLabel = hasTreatment ? "Open Treatment Room" : "Open Writers' Room";
+    const actionLabel = hasCarstairs ? "Open Carstairs' Office" : hasTreatment ? "Open Treatment Room" : "Open Writers' Room";
 
     return `
       <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
@@ -1141,6 +1158,7 @@ const carstairsFiles = {
 
 function getCarstairsProperty() {
   const key = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
+  if (/^SPC-/i.test(key)) return key;
   return propertyFiles[key] ? key : "dangerous-kisses";
 }
 
@@ -1148,7 +1166,7 @@ function showCarstairsVerdict(kind, quote) {
   if (!carstairsVerdict || !carstairsStamp || !carstairsQuote || !carstairsAction) return;
   const labels = {
     greenlight: ["Greenlight", "final-stamp final-stamp--treatments", "Return to the Scenario Desk", "scenario-desk.html"],
-    rewrite: ["Reconference", "final-stamp final-stamp--reconference", "Return to Treatment Room", "#carstairs-rewrite"],
+    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Return to Treatment Room", "#carstairs-rewrite"],
     wastebasket: ["Wastebasket", "final-stamp final-stamp--wastebasket", "Return to the Scenario Desk", "scenario-desk.html"]
   };
   const [stamp, className, action, href] = labels[kind] || labels.greenlight;
@@ -1158,6 +1176,58 @@ function showCarstairsVerdict(kind, quote) {
   carstairsAction.textContent = action;
   carstairsAction.href = href;
   carstairsVerdict.hidden = false;
+}
+
+function renderCarstairsPacket(property) {
+  if (!property || !carstairsTitle) return;
+  document.title = `${property.title || "Untitled Property"} | Carstairs' Office`;
+  carstairsTitle.textContent = property.title || "Untitled Property";
+  if (carstairsLogline) {
+    carstairsLogline.textContent = property.logline || property.readerSynopsis || "No filed logline is presently on the desk.";
+  }
+}
+
+function renderSavedCarstairsMemo(payload) {
+  if (!payload || !carstairsMemo || !carstairsMemoTitle || !carstairsOpinion) return;
+  carstairsMemoTitle.textContent = payload.memoTitle || "From the Desk of Carstairs";
+  carstairsOpinion.innerHTML = payload.memoBody || "";
+  carstairsMemo.hidden = false;
+  showCarstairsVerdict(payload.verdict || "greenlight", payload.quote || "");
+  if (evaluateTreatment) {
+    evaluateTreatment.textContent = "Treatment Evaluated";
+    evaluateTreatment.disabled = true;
+  }
+}
+
+function requestCarstairsVerdict(propertyId, rewriteNotes) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioCarstairs_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Carstairs timed out."));
+    }, 120000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Carstairs request failed."));
+    };
+
+    const notes = rewriteNotes ? encodeURIComponent(JSON.stringify(rewriteNotes)) : "";
+    script.src = `${scenarioBackendUrl}?action=runCarstairs&propertyId=${encodeURIComponent(propertyId)}&rewriteNotes=${notes}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
 }
 
 function startCarstairsClock() {
@@ -1177,14 +1247,51 @@ function startCarstairsClock() {
 
 if (carstairsTitle) {
   const key = getCarstairsProperty();
-  const file = propertyFiles[key];
-  carstairsTitle.textContent = file.title;
-  if (carstairsLogline) carstairsLogline.textContent = file.logline;
+  if (/^SPC-/i.test(key)) {
+    loadLedgerProperties()
+      .then((payload) => {
+        if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+        const property = (payload.properties || []).find((item) =>
+          String(item.propertyId || "").toLowerCase() === key.toLowerCase()
+        );
+        if (!property) return;
+        renderCarstairsPacket(property);
+        const saved = parseSavedCarstairs(property);
+        if (saved) {
+          renderSavedCarstairsMemo(saved);
+        }
+      })
+      .catch(() => {
+        if (carstairsLogline) carstairsLogline.textContent = "The executive file could not be drawn from the ledger.";
+      });
+  } else {
+    const file = propertyFiles[key];
+    carstairsTitle.textContent = file.title;
+    if (carstairsLogline) carstairsLogline.textContent = file.logline;
+  }
 }
 
 if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
-  evaluateTreatment.addEventListener("click", () => {
+  evaluateTreatment.addEventListener("click", async () => {
     const key = getCarstairsProperty();
+    if (/^SPC-/i.test(key)) {
+      evaluateTreatment.disabled = true;
+      evaluateTreatment.textContent = "Carstairs Is Reading";
+      try {
+        const payload = await requestCarstairsVerdict(key);
+        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
+        renderSavedCarstairsMemo(payload);
+        carstairsMemo.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (error) {
+        carstairsMemoTitle.textContent = "The upper office line has gone dead.";
+        carstairsOpinion.textContent = "Carstairs has not yet returned his memorandum to the desk. Keep the treatment on file and try the executive office again.";
+        carstairsMemo.hidden = false;
+        evaluateTreatment.textContent = "Evaluate the Treatment";
+        evaluateTreatment.disabled = false;
+      }
+      return;
+    }
+
     const file = carstairsFiles[key] || carstairsFiles["dangerous-kisses"];
     carstairsMemoTitle.textContent = file.memoTitle;
     carstairsOpinion.textContent = file.opinion;
@@ -1209,7 +1316,31 @@ if (carstairsAction && carstairsRewrite) {
 }
 
 if (resubmitCarstairs) {
-  resubmitCarstairs.addEventListener("click", () => {
+  resubmitCarstairs.addEventListener("click", async () => {
+    const key = getCarstairsProperty();
+    if (/^SPC-/i.test(key)) {
+      const rewriteNotes = {
+        bigPromise: document.querySelector("#carstairs-big-promise")?.value || "",
+        humanWound: document.querySelector("#carstairs-human-wound")?.value || "",
+        spectacle: document.querySelector("#carstairs-spectacle")?.value || ""
+      };
+
+      resubmitCarstairs.disabled = true;
+      resubmitCarstairs.textContent = "Sending Back Upstairs";
+
+      try {
+        const payload = await requestCarstairsVerdict(key, rewriteNotes);
+        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
+        renderSavedCarstairsMemo(payload);
+        if (carstairsRewrite) carstairsRewrite.hidden = true;
+        if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (error) {
+        resubmitCarstairs.disabled = false;
+        resubmitCarstairs.textContent = "Send Back Upstairs";
+      }
+      return;
+    }
+
     if (carstairsMemoTitle && carstairsOpinion) {
       carstairsMemoTitle.textContent = "Now the treatment has blood in it.";
       carstairsOpinion.textContent = "Better. The repair gives the central image a reason to exist and puts the wound where the audience can feel it. I still dislike the machinery of the second movement, but I can sell a daughter climbing into her father's sin while the city watches the clock. That is a picture.";
