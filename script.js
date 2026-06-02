@@ -201,7 +201,7 @@ function propertyHref(property) {
   if (hasFinalCarstairs) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
   }
-  const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
+  const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || /treatment ready|treatment applied/i.test(status) || Boolean(parseSavedTreatment(property));
   if (hasTreatment) {
     return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
   }
@@ -478,6 +478,7 @@ let activePhotoplaywrightVerdicts = defaultPhotoplaywrightVerdicts;
 let activeConferenceDecision = "treatments";
 let activeConferenceProperty = null;
 let activeConferenceWriterKeys = ["marchmont", "fairchild", "carrington"];
+let activeConferencePayload = null;
 
 const photoplaywrightRoster = {
   marchmont: {
@@ -574,6 +575,50 @@ function makeConferenceVerdicts(writerKeys) {
   });
 }
 
+function stableHash(value) {
+  return String(value || "").split("").reduce((hash, char) => {
+    return ((hash << 5) - hash + char.charCodeAt(0)) | 0;
+  }, 0);
+}
+
+function weightedConferenceWriters(property = {}) {
+  const text = [
+    property.title,
+    property.sourceType,
+    property.logline,
+    property.notes,
+    property.readerSynopsis,
+    property.keyDramaticSequences,
+    property.characterArchetypes
+  ].join(" ").toLowerCase();
+  const seed = Math.abs(stableHash(property.propertyId || property.title || text));
+  const scores = {
+    marchmont: 12,
+    fairchild: 4,
+    ashcombe: 4,
+    carrington: 4,
+    vane: 4,
+    sterling: 4,
+    thorncroft: 4
+  };
+
+  if (/romance|love|marriage|destiny|heart|longing|sacrifice|kiss/.test(text)) scores.sterling += 8;
+  if (/woman|women|society|class|reputation|family|heiress|matron|social/.test(text)) scores.ashcombe += 8;
+  if (/moral|guilt|sin|confession|betrayal|duty|judgment|ethical/.test(text)) scores.carrington += 8;
+  if (/history|war|inheritance|legacy|consequence|stakes|redemption|cost/.test(text)) scores.thorncroft += 8;
+  if (/comedy|wit|satire|comic|pace|entertainment|modern|flapper/.test(text)) scores.vane += 8;
+  if (/suffering|sympathy|mother|child|wound|reconciliation|grief/.test(text)) scores.fairchild += 8;
+
+  return Object.keys(scores)
+    .map((key, index) => ({
+      key,
+      score: scores[key] + ((seed + index * 7) % 5)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .map((item) => item.key);
+}
+
 function configureConferenceFromProperty(property = {}) {
   activeConferenceProperty = property;
   const sourceText = [
@@ -586,22 +631,7 @@ function configureConferenceFromProperty(property = {}) {
     property.characterArchetypes
   ].join(" ").toLowerCase();
 
-  const selected = ["marchmont"];
-  const add = (key) => {
-    if (!selected.includes(key)) selected.push(key);
-  };
-
-  if (/romance|love|marriage|destiny|heart|longing|sacrifice/.test(sourceText)) add("sterling");
-  if (/woman|women|society|class|reputation|family|heiress|matron|social/.test(sourceText)) add("ashcombe");
-  if (/moral|guilt|sin|confession|betrayal|duty|judgment|ethical/.test(sourceText)) add("carrington");
-  if (/history|war|inheritance|legacy|consequence|stakes|redemption|cost/.test(sourceText)) add("thorncroft");
-  if (/comedy|wit|satire|comic|pace|entertainment|modern/.test(sourceText)) add("vane");
-  if (/suffering|sympathy|mother|child|wound|reconciliation/.test(sourceText)) add("fairchild");
-
-  if (selected.length < 3) add("fairchild");
-  if (selected.length < 3) add("carrington");
-
-  activeConferenceWriterKeys = selected.slice(0, 4);
+  activeConferenceWriterKeys = weightedConferenceWriters(property);
   activePhotoplaywrightVerdicts = makeConferenceVerdicts(activeConferenceWriterKeys);
 
   const score = Number(String(property.suitabilityScore || "").match(/\d+/)?.[0] || 0);
@@ -609,7 +639,91 @@ function configureConferenceFromProperty(property = {}) {
   activeConferenceDecision = (score && score < 55) || needsRepair ? "reconference" : "treatments";
 }
 
-function requestConferenceVerdicts() {
+function parseSavedConference(property) {
+  if (!property || !property.conferenceJson) return null;
+  try {
+    return JSON.parse(property.conferenceJson);
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeConferenceDecision(value) {
+  const cleaned = String(value || "").toLowerCase();
+  if (cleaned.includes("waste")) return "wastebasket";
+  if (cleaned.includes("reconference") || cleaned.includes("rewrite") || cleaned.includes("repair")) return "reconference";
+  return "treatments";
+}
+
+function normalizeConferenceQuestions(payload) {
+  const questions = Array.isArray(payload && payload.reconferenceQuestions)
+    ? payload.reconferenceQuestions
+    : [];
+
+  if (questions.length) {
+    return questions.slice(0, 4).map((item, index) => ({
+      id: item.id || `repair_${index + 1}`,
+      label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
+      prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
+      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference..."
+    }));
+  }
+
+  return [
+    {
+      id: "repair_structure",
+      label: "Structural Repair",
+      prompt: "What new action makes the central dramatic problem clearer and harder to avoid?",
+      placeholder: "Describe the new turn, discovery, deadline, or public pressure..."
+    },
+    {
+      id: "repair_emotion",
+      label: "Human Repair",
+      prompt: "What new wound, romance, duty, or personal tie gives the audience someone to care about?",
+      placeholder: "Describe the emotional cost or relationship pressure..."
+    },
+    {
+      id: "repair_spectacle",
+      label: "Visual Repair",
+      prompt: "What new visual sequence makes this property more playable as a photoplay?",
+      placeholder: "Describe the image, chase, crowd, storm, confrontation, or public moment..."
+    }
+  ];
+}
+
+function normalizeConferenceAnswers(payload) {
+  const raw = payload && payload.reconferenceAnswers;
+  if (!raw) return {};
+  if (!Array.isArray(raw) && typeof raw === "object") return raw;
+  if (!Array.isArray(raw)) return {};
+  return raw.reduce((answers, item) => {
+    if (item && item.id) answers[item.id] = item.answer || "";
+    return answers;
+  }, {});
+}
+
+function renderReconferenceQuestions(payload) {
+  const container = document.querySelector("#reconference-questions");
+  if (!container) return;
+  const questions = normalizeConferenceQuestions(payload);
+  const answers = normalizeConferenceAnswers(payload);
+  container.innerHTML = questions.map((question) => `
+    <label>
+      ${escapeHtml(question.label)}
+      <p>${escapeHtml(question.prompt)}</p>
+      <textarea data-reconference-question-id="${escapeHtml(question.id)}" placeholder="${escapeHtml(question.placeholder)}">${escapeHtml(answers[question.id] || "")}</textarea>
+    </label>
+  `).join("");
+}
+
+function collectReconferenceAnswers() {
+  return Array.from(document.querySelectorAll("[data-reconference-question-id]")).map((node) => ({
+    id: node.dataset.reconferenceQuestionId || "",
+    answer: node.value || ""
+  }));
+}
+
+function requestConferenceVerdicts(reconferenceNotes) {
   return new Promise((resolve, reject) => {
     if (!/^SPC-/i.test(activePropertyKey)) {
       resolve(null);
@@ -640,7 +754,8 @@ function requestConferenceVerdicts() {
     };
 
     const writers = activeConferenceWriterKeys.join(",");
-    script.src = `${scenarioBackendUrl}?action=runConference&propertyId=${encodeURIComponent(activePropertyKey)}&writers=${encodeURIComponent(writers)}&callback=${encodeURIComponent(callbackName)}`;
+    const notes = reconferenceNotes ? `&reconferenceNotes=${encodeURIComponent(JSON.stringify(reconferenceNotes))}` : "";
+    script.src = `${scenarioBackendUrl}?action=runConference&propertyId=${encodeURIComponent(activePropertyKey)}&writers=${encodeURIComponent(writers)}${notes}&callback=${encodeURIComponent(callbackName)}`;
     document.body.appendChild(script);
   });
 }
@@ -648,6 +763,8 @@ function requestConferenceVerdicts() {
 function applyConferenceVerdicts(payload) {
   if (!payload || !payload.ok || !Array.isArray(payload.writers) || !payload.writers.length) return false;
 
+  activeConferencePayload = payload;
+  reconferenceCount = Number(payload.reconferenceCount || reconferenceCount || 0) || 0;
   const writers = payload.writers.slice(0, 4);
   activePhotoplaywrightVerdicts = writers.map((writer, index) => {
     const nextWriter = writers[index + 1];
@@ -664,11 +781,37 @@ function applyConferenceVerdicts(payload) {
   });
 
   if (payload.decision || payload.finalDecision) {
-    activeConferenceDecision = payload.decision || payload.finalDecision;
+    activeConferenceDecision = normalizeConferenceDecision(payload.decision || payload.finalDecision);
   }
 
   if (payload.quote && executiveVerdicts[activeConferenceDecision]) {
     executiveVerdicts[activeConferenceDecision].quote = payload.quote;
+  }
+
+  if (activeConferenceDecision === "reconference") {
+    renderReconferenceQuestions(payload);
+  }
+
+  return true;
+}
+
+function renderSavedConferenceState(property) {
+  if (!/^SPC-/i.test(activePropertyKey)) return false;
+  const saved = parseSavedConference(property);
+  if (!saved || !applyConferenceVerdicts(saved)) return false;
+
+  readerRoster?.classList.remove("is-locked");
+  if (sendLetter) {
+    sendLetter.textContent = "Conference Packet Filed";
+    sendLetter.disabled = true;
+  }
+
+  photoplaywrightIndex = 0;
+  renderPhotoplaywright(photoplaywrightIndex);
+  showExecutiveVerdict(decideExecutiveVerdict());
+
+  if (activeConferenceDecision === "reconference") {
+    renderReconferenceQuestions(saved);
   }
 
   return true;
@@ -784,6 +927,7 @@ function startReconferenceClock() {
   clearInterval(reconferenceInterval);
   let remaining = 36;
   reconferenceFeedback.hidden = true;
+  renderReconferenceQuestions(activeConferencePayload);
   if (reconferenceCount >= 2) {
     if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "Final Moral Repair ";
     if (labelRomance) labelRomance.childNodes[0].textContent = "Final Human Tie or Romance Repair ";
@@ -889,9 +1033,41 @@ if (finalAction && reconferenceWorkshop) {
 }
 
 if (updatedConference) {
-  updatedConference.addEventListener("click", () => {
+  updatedConference.addEventListener("click", async () => {
     if (reconferenceCount >= 2) {
       showExecutiveVerdict("wastebasket");
+      return;
+    }
+
+    if (/^SPC-/i.test(activePropertyKey)) {
+      updatedConference.disabled = true;
+      updatedConference.textContent = "Conferencing the Repairs";
+      try {
+        const questions = normalizeConferenceQuestions(activeConferencePayload).map((question) => ({
+          id: question.id,
+          label: question.label,
+          prompt: question.prompt
+        }));
+        const payload = await requestConferenceVerdicts({
+          questions,
+          answers: collectReconferenceAnswers(),
+          reconferenceCount: reconferenceCount + 1
+        });
+        if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
+        photoplaywrightIndex = 0;
+        renderPhotoplaywright(photoplaywrightIndex);
+        showExecutiveVerdict(decideExecutiveVerdict());
+      } catch (error) {
+        if (readerVerdict) {
+          readerVerdict.innerHTML = `
+            <p class="eyebrow">Updated Writers' Verdicts</p>
+            <h3>The reconference clerk could not file the repair pass.</h3>
+            <p>The new material remains on the table. Try the updated conference once more.</p>
+          `;
+        }
+        updatedConference.disabled = false;
+        updatedConference.textContent = "Convene Updated Conference";
+      }
       return;
     }
 

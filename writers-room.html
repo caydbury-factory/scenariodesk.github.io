@@ -167,15 +167,7 @@
             </div>
 
             <form class="reconference-form">
-              <label id="label-moral-pressure">New Moral Pressure
-                <textarea id="new-moral-pressure" placeholder="Example: Elsa can save the parade only by proving her father helped build the assassination mechanism."></textarea>
-              </label>
-              <label id="label-romance">Stronger Romance or Human Tie
-                <textarea id="new-romance" placeholder="Example: The police engineer assigned to stop her was once her father's apprentice."></textarea>
-              </label>
-              <label id="label-spectacle">New Spectacle or Visual Sequence
-                <textarea id="new-spectacle" placeholder="Example: Elsa climbs inside the tower clock while the parade gathers below and the bells begin to move."></textarea>
-              </label>
+              <div id="reconference-questions"></div>
               <button type="button" id="updated-conference">Convene Updated Conference</button>
             </form>
           </article>
@@ -327,6 +319,10 @@
 
           if (typeof configureConferenceFromProperty === "function") {
             configureConferenceFromProperty(property);
+          }
+
+          if (typeof renderSavedConferenceState === "function") {
+            renderSavedConferenceState(property);
           }
         }
 
