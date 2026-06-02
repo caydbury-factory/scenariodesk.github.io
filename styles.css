@@ -553,6 +553,7 @@ fieldset span {
 }
 
 .carstairs-desk,
+.carstairs-dossier,
 .carstairs-memo,
 .carstairs-verdict,
 .carstairs-reasons,
@@ -572,6 +573,7 @@ fieldset span {
 }
 
 .carstairs-desk h2,
+.carstairs-dossier h2,
 .carstairs-memo h2,
 .carstairs-reasons h2,
 .carstairs-rewrite h2 {
@@ -579,6 +581,7 @@ fieldset span {
 }
 
 .carstairs-desk p:not(.eyebrow),
+.carstairs-dossier p:not(.eyebrow),
 .carstairs-memo p:not(.eyebrow),
 .carstairs-reasons p:not(.eyebrow),
 .carstairs-rewrite p:not(.eyebrow) {
@@ -631,6 +634,21 @@ fieldset span {
 .carstairs-reasons li {
   margin-bottom: .4rem;
   line-height: 1.68;
+}
+
+.carstairs-dossier {
+  display: grid;
+  gap: .85rem;
+}
+
+.carstairs-dossier__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
+.carstairs-dossier__links .button {
+  width: fit-content;
 }
 
 .carstairs-rewrite .reconference-form {

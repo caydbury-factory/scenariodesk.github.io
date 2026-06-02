@@ -1257,6 +1257,10 @@ if (prepareTreatment && officialTreatment) {
 const carstairsTitle = document.querySelector("#carstairs-title");
 const carstairsLogline = document.querySelector("#carstairs-logline");
 const evaluateTreatment = document.querySelector("#evaluate-treatment");
+const carstairsDossier = document.querySelector("#carstairs-dossier");
+const carstairsTreatmentLink = document.querySelector("#carstairs-treatment-link");
+const carstairsWritersLink = document.querySelector("#carstairs-writers-link");
+const carstairsReaderSummary = document.querySelector("#carstairs-reader-summary");
 const carstairsMemo = document.querySelector("#carstairs-memo");
 const carstairsMemoTitle = document.querySelector("#carstairs-memo-title");
 const carstairsOpinion = document.querySelector("#carstairs-opinion");
@@ -1274,6 +1278,7 @@ let carstairsRewriteUsed = false;
 let carstairsInterval;
 let activeCarstairsProperty = null;
 let activeCarstairsPayload = null;
+const carstairsMinimumReadingMs = 5500;
 
 const carstairsFiles = {
   "dangerous-kisses": {
@@ -1319,6 +1324,18 @@ function renderCarstairsPacket(property) {
   carstairsTitle.textContent = property.title || "Untitled Property";
   if (carstairsLogline) {
     carstairsLogline.textContent = property.logline || property.readerSynopsis || "No filed logline is presently on the desk.";
+  }
+  if (carstairsDossier) {
+    carstairsDossier.hidden = false;
+  }
+  if (carstairsTreatmentLink) {
+    carstairsTreatmentLink.href = property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(property.propertyId || getCarstairsProperty())}`;
+  }
+  if (carstairsWritersLink) {
+    carstairsWritersLink.href = property.writerRoomUrl || `writers-room.html?property=${encodeURIComponent(property.propertyId || getCarstairsProperty())}`;
+  }
+  if (carstairsReaderSummary) {
+    carstairsReaderSummary.textContent = property.readerSynopsis || property.logline || "The scenario reader's précis has not yet been filed in the ledger.";
   }
 }
 
@@ -1383,9 +1400,22 @@ function renderSavedCarstairsMemo(payload) {
     if (carstairsRewrite) carstairsRewrite.hidden = true;
   }
   if (evaluateTreatment) {
-    evaluateTreatment.textContent = "Treatment Evaluated";
+    evaluateTreatment.textContent = payload && /greenlight|wastebasket/i.test(payload.verdict || "")
+      ? "Executive Ruling Filed"
+      : "Treatment Evaluated";
     evaluateTreatment.disabled = true;
   }
+}
+
+function withMinimumReadingDelay(promiseFactory) {
+  const startedAt = Date.now();
+  return promiseFactory().then((payload) => {
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, carstairsMinimumReadingMs - elapsed);
+    return new Promise((resolve) => {
+      window.setTimeout(() => resolve(payload), remaining);
+    });
+  });
 }
 
 function requestCarstairsVerdict(propertyId, rewriteNotes) {
@@ -1467,7 +1497,7 @@ if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
       evaluateTreatment.disabled = true;
       evaluateTreatment.textContent = "Carstairs Is Reading";
       try {
-        const payload = await requestCarstairsVerdict(key);
+        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key));
         if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
         renderSavedCarstairsMemo(payload);
         carstairsMemo.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1533,7 +1563,7 @@ if (resubmitCarstairs) {
       resubmitCarstairs.textContent = "Sending Back Upstairs";
 
       try {
-        const payload = await requestCarstairsVerdict(key, rewriteNotes);
+        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key, rewriteNotes));
         if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
         if (activeCarstairsProperty) {
           activeCarstairsProperty.carstairsJson = JSON.stringify(payload);
