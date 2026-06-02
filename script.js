@@ -1373,9 +1373,15 @@ function renderSavedCarstairsMemo(payload) {
   carstairsMemoTitle.textContent = payload.memoTitle || "From the Desk of Carstairs";
   carstairsOpinion.innerHTML = payload.memoBody || "";
   carstairsMemo.hidden = false;
-  showCarstairsVerdict(payload.verdict || "greenlight", payload.quote || "");
-  renderCarstairsReasonsBlock(payload);
-  renderCarstairsRewriteForm(payload, (payload.verdict || "") === "rewrite");
+  if (payload.verdict) {
+    showCarstairsVerdict(payload.verdict, payload.quote || "");
+    renderCarstairsReasonsBlock(payload);
+    renderCarstairsRewriteForm(payload, payload.verdict === "rewrite");
+  } else {
+    if (carstairsVerdict) carstairsVerdict.hidden = true;
+    if (carstairsReasons) carstairsReasons.hidden = true;
+    if (carstairsRewrite) carstairsRewrite.hidden = true;
+  }
   if (evaluateTreatment) {
     evaluateTreatment.textContent = "Treatment Evaluated";
     evaluateTreatment.disabled = true;
@@ -1467,8 +1473,13 @@ if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
         carstairsMemo.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch (error) {
         carstairsMemoTitle.textContent = "The upper office line has gone dead.";
-        carstairsOpinion.textContent = "Carstairs has not yet returned his memorandum to the desk. Keep the treatment on file and try the executive office again.";
+        carstairsOpinion.textContent = error && error.message
+          ? `Carstairs has not yet returned a usable memorandum. ${error.message}`
+          : "Carstairs has not yet returned his memorandum to the desk. Keep the treatment on file and try the executive office again.";
         carstairsMemo.hidden = false;
+        if (carstairsVerdict) carstairsVerdict.hidden = true;
+        if (carstairsReasons) carstairsReasons.hidden = true;
+        if (carstairsRewrite) carstairsRewrite.hidden = true;
         evaluateTreatment.textContent = "Evaluate the Treatment";
         evaluateTreatment.disabled = false;
       }
@@ -1531,6 +1542,13 @@ if (resubmitCarstairs) {
         if (carstairsRewrite) carstairsRewrite.hidden = true;
         if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch (error) {
+        if (carstairsMemoTitle && carstairsOpinion) {
+          carstairsMemoTitle.textContent = "The memorandum was returned in disorder.";
+          carstairsOpinion.textContent = error && error.message
+            ? `Carstairs did not file a proper second memorandum. ${error.message}`
+            : "Carstairs did not file a proper second memorandum. The revision remains on the desk.";
+          carstairsMemo.hidden = false;
+        }
         resubmitCarstairs.disabled = false;
         resubmitCarstairs.textContent = "Send Back Upstairs";
       }
