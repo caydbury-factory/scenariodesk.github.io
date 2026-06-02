@@ -913,6 +913,9 @@ const treatmentChecks = document.querySelectorAll("#treatment-writers input[type
 const selectedCount = document.querySelector("#selected-count");
 const prepareTreatment = document.querySelector("#prepare-treatment");
 const officialTreatment = document.querySelector("#official-treatment");
+const executiveRevision = document.querySelector("#executive-revision");
+const executiveRevisionMemo = document.querySelector("#executive-revision-memo");
+const executiveRevisionQuestions = document.querySelector("#executive-revision-questions");
 let activeTreatmentProperty = null;
 
 const treatmentBlueprints = {
@@ -1015,6 +1018,128 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   officialTreatment.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function stripHtmlTags(html) {
+  return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeCarstairsQuestions(payload) {
+  const raw = Array.isArray(payload && payload.rewriteQuestions) && payload.rewriteQuestions.length
+    ? payload.rewriteQuestions
+    : deriveFallbackCarstairsQuestions(payload);
+
+  return raw.slice(0, 4).map((item, index) => {
+    if (typeof item === "string") {
+      return {
+        id: `repair_${index + 1}`,
+        label: `Executive Repair ${String(index + 1).padStart(2, "0")}`,
+        prompt: item,
+        placeholder: "Set down the repair plainly for the executive desk."
+      };
+    }
+
+    return {
+      id: item.id || `repair_${index + 1}`,
+      label: item.label || `Executive Repair ${String(index + 1).padStart(2, "0")}`,
+      prompt: item.prompt || item.question || item.label || "Clarify the repair Carstairs is demanding.",
+      placeholder: item.placeholder || "Set down the repair plainly for the executive desk."
+    };
+  });
+}
+
+function deriveFallbackCarstairsQuestions(payload) {
+  const memoText = stripHtmlTags((payload && payload.memoBody) || (payload && payload.opinion) || "");
+  const suggestions = [];
+
+  if (/title|hook|sell|promise|marquee/i.test(memoText)) {
+    suggestions.push("State how the picture now announces its big promise to the masses from the title onward.");
+  }
+  if (/wound|moral|heart|care|suffer|sympathy/i.test(memoText)) {
+    suggestions.push("Explain where the central wound now strikes the characters in visible action rather than explanation.");
+  }
+  if (/spectacle|visual|set piece|silver sheet|camera|public/i.test(memoText)) {
+    suggestions.push("Describe the enlarged spectacle that now carries moral or emotional consequence on the silver sheet.");
+  }
+  if (/third act|climax|ending|resolution|pacing/i.test(memoText)) {
+    suggestions.push("Set down how the final movement now reaches a cleaner and more decisive climax.");
+  }
+
+  if (!suggestions.length) {
+    suggestions.push(
+      "Tell Carstairs how the picture now declares its grand promise in unmistakable terms.",
+      "Show where the audience will feel the wound and the moral consequence in action.",
+      "Name the visual set-piece that now gives the photoplay majesty rather than cleverness."
+    );
+  }
+
+  return suggestions;
+}
+
+function normalizeWastebasketReasons(payload) {
+  const raw = Array.isArray(payload && payload.wastebasketReasons) && payload.wastebasketReasons.length
+    ? payload.wastebasketReasons
+    : deriveFallbackWastebasketReasons(payload);
+
+  return raw.slice(0, 4).map((item) => String(typeof item === "string" ? item : item.reason || item.body || "").trim()).filter(Boolean);
+}
+
+function deriveFallbackWastebasketReasons(payload) {
+  const memoText = stripHtmlTags((payload && payload.memoBody) || "");
+  const reasons = [];
+  if (/small|small-minded|drawing-room|thin/i.test(memoText)) reasons.push("The picture remains too small in scale to command the silver sheet.");
+  if (/hook|title|marquee|sell/i.test(memoText)) reasons.push("The title and hook still fail to promise a commanding attraction for the audience.");
+  if (/spectacle|visual|set piece/i.test(memoText)) reasons.push("The treatment does not yet furnish a spectacle worthy of production expense.");
+  if (/confus|murky|unclear|pacing|structure/i.test(memoText)) reasons.push("The dramatic line remains too confused or slack to hold the house.");
+  if (/moral|wound|heart|care/i.test(memoText)) reasons.push("The moral wound does not strike deeply enough to justify the downfall or redemption.");
+  return reasons.length ? reasons : ["The property still lacks the clarity, scale, and emotional authority required for a major photoplay."];
+}
+
+function normalizeRewriteAnswers(payload) {
+  const answers = payload && payload.rewriteAnswers;
+  if (!answers) return {};
+  if (Array.isArray(answers)) {
+    return Object.fromEntries(answers.map((item, index) => [
+      item.id || `repair_${index + 1}`,
+      item.answer || item.response || ""
+    ]));
+  }
+  if (typeof answers === "object") {
+    return answers;
+  }
+  return {};
+}
+
+function renderTreatmentExecutiveRevision(property, treatment, carstairsPacket) {
+  if (!executiveRevision || !executiveRevisionMemo || !executiveRevisionQuestions) return;
+
+  const treatmentRewrite = treatment && treatment.executiveRewrite ? treatment.executiveRewrite : null;
+  const packet = carstairsPacket || treatmentRewrite;
+
+  if (!packet || !/rewrite/i.test(packet.verdict || packet.statusLabel || property?.status || "")) {
+    executiveRevision.hidden = true;
+    executiveRevisionMemo.innerHTML = "";
+    executiveRevisionQuestions.innerHTML = "";
+    return;
+  }
+
+  const questions = normalizeCarstairsQuestions(packet);
+  const answers = normalizeRewriteAnswers(packet);
+
+  executiveRevisionMemo.innerHTML = `
+    <h3>${escapeHtml(packet.memoTitle || "From the Desk of Carstairs")}</h3>
+    <p>${escapeHtml(stripHtmlTags(packet.memoBody || ""))}</p>
+  `;
+
+  executiveRevisionQuestions.innerHTML = questions.map((question) => `
+    <article>
+      <h3>${escapeHtml(question.label)}</h3>
+      <p>${escapeHtml(question.prompt)}</p>
+      <p class="executive-answer">${escapeHtml(answers[question.id] || "No filed answer yet.")}</p>
+    </article>
+  `).join("");
+
+  executiveRevision.hidden = false;
+}
+
 function requestOfficialTreatment(propertyId, writers) {
   return new Promise((resolve, reject) => {
     const callbackName = `scenarioTreatment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -1059,12 +1184,16 @@ function renderLiveTreatmentProperty(property) {
   if (treatmentLogline) treatmentLogline.textContent = logline;
 
   const savedTreatment = parseSavedTreatment(property);
+  const savedCarstairs = parseSavedCarstairs(property);
   if (savedTreatment && officialTreatment) {
     renderTreatmentDocument(property, savedTreatment, savedTreatment.author || "", property.propertyId || getTreatmentProperty());
+    renderTreatmentExecutiveRevision(property, savedTreatment, savedCarstairs);
     if (prepareTreatment) {
       prepareTreatment.textContent = "Official Treatment Filed";
       prepareTreatment.disabled = true;
     }
+  } else {
+    renderTreatmentExecutiveRevision(property, null, savedCarstairs);
   }
 }
 
@@ -1131,15 +1260,20 @@ const evaluateTreatment = document.querySelector("#evaluate-treatment");
 const carstairsMemo = document.querySelector("#carstairs-memo");
 const carstairsMemoTitle = document.querySelector("#carstairs-memo-title");
 const carstairsOpinion = document.querySelector("#carstairs-opinion");
+const carstairsReasons = document.querySelector("#carstairs-reasons");
+const carstairsReasonsList = document.querySelector("#carstairs-reasons-list");
 const carstairsVerdict = document.querySelector("#carstairs-verdict");
 const carstairsStamp = document.querySelector("#carstairs-stamp");
 const carstairsQuote = document.querySelector("#carstairs-quote");
 const carstairsAction = document.querySelector("#carstairs-action");
 const carstairsRewrite = document.querySelector("#carstairs-rewrite");
+const carstairsQuestions = document.querySelector("#carstairs-questions");
 const carstairsTimer = document.querySelector("#carstairs-timer");
 const resubmitCarstairs = document.querySelector("#resubmit-carstairs");
 let carstairsRewriteUsed = false;
 let carstairsInterval;
+let activeCarstairsProperty = null;
+let activeCarstairsPayload = null;
 
 const carstairsFiles = {
   "dangerous-kisses": {
@@ -1180,6 +1314,7 @@ function showCarstairsVerdict(kind, quote) {
 
 function renderCarstairsPacket(property) {
   if (!property || !carstairsTitle) return;
+  activeCarstairsProperty = property;
   document.title = `${property.title || "Untitled Property"} | Carstairs' Office`;
   carstairsTitle.textContent = property.title || "Untitled Property";
   if (carstairsLogline) {
@@ -1187,12 +1322,60 @@ function renderCarstairsPacket(property) {
   }
 }
 
+function renderCarstairsReasonsBlock(payload) {
+  if (!carstairsReasons || !carstairsReasonsList) return;
+  const reasons = normalizeWastebasketReasons(payload);
+  if ((payload && payload.verdict) !== "wastebasket" || !reasons.length) {
+    carstairsReasons.hidden = true;
+    carstairsReasonsList.innerHTML = "";
+    return;
+  }
+
+  carstairsReasonsList.innerHTML = `
+    <ul>
+      ${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
+    </ul>
+  `;
+  carstairsReasons.hidden = false;
+}
+
+function renderCarstairsRewriteForm(payload, forceOpen = false) {
+  if (!carstairsRewrite || !carstairsQuestions) return;
+
+  const questions = normalizeCarstairsQuestions(payload);
+  const answers = normalizeRewriteAnswers(payload);
+
+  if ((payload && payload.verdict) !== "rewrite" || !questions.length) {
+    carstairsRewrite.hidden = true;
+    carstairsQuestions.innerHTML = "";
+    return;
+  }
+
+  carstairsQuestions.innerHTML = questions.map((question) => `
+    <label class="executive-question">
+      <h3>${escapeHtml(question.label)}</h3>
+      <p>${escapeHtml(question.prompt)}</p>
+      <textarea
+        data-carstairs-question-id="${escapeHtml(question.id)}"
+        placeholder="${escapeHtml(question.placeholder)}"
+      >${escapeHtml(answers[question.id] || "")}</textarea>
+    </label>
+  `).join("");
+
+  if (forceOpen || Object.values(answers).some(Boolean)) {
+    carstairsRewrite.hidden = false;
+  }
+}
+
 function renderSavedCarstairsMemo(payload) {
   if (!payload || !carstairsMemo || !carstairsMemoTitle || !carstairsOpinion) return;
+  activeCarstairsPayload = payload;
   carstairsMemoTitle.textContent = payload.memoTitle || "From the Desk of Carstairs";
   carstairsOpinion.innerHTML = payload.memoBody || "";
   carstairsMemo.hidden = false;
   showCarstairsVerdict(payload.verdict || "greenlight", payload.quote || "");
+  renderCarstairsReasonsBlock(payload);
+  renderCarstairsRewriteForm(payload, (payload.verdict || "") === "rewrite");
   if (evaluateTreatment) {
     evaluateTreatment.textContent = "Treatment Evaluated";
     evaluateTreatment.disabled = true;
@@ -1307,7 +1490,10 @@ if (carstairsAction && carstairsRewrite) {
   carstairsAction.addEventListener("click", (event) => {
     if (carstairsAction.getAttribute("href") !== "#carstairs-rewrite") return;
     event.preventDefault();
-    if (carstairsRewriteUsed) return;
+    if (activeCarstairsPayload) {
+      renderCarstairsRewriteForm(activeCarstairsPayload, true);
+    }
+    if (carstairsRewriteUsed && !carstairsRewrite.hidden) return;
     carstairsRewriteUsed = true;
     carstairsRewrite.hidden = false;
     startCarstairsClock();
@@ -1319,10 +1505,17 @@ if (resubmitCarstairs) {
   resubmitCarstairs.addEventListener("click", async () => {
     const key = getCarstairsProperty();
     if (/^SPC-/i.test(key)) {
+      const questionNodes = Array.from(document.querySelectorAll("[data-carstairs-question-id]"));
       const rewriteNotes = {
-        bigPromise: document.querySelector("#carstairs-big-promise")?.value || "",
-        humanWound: document.querySelector("#carstairs-human-wound")?.value || "",
-        spectacle: document.querySelector("#carstairs-spectacle")?.value || ""
+        questions: normalizeCarstairsQuestions(activeCarstairsPayload).map((question) => ({
+          id: question.id,
+          label: question.label,
+          prompt: question.prompt
+        })),
+        answers: questionNodes.map((node) => ({
+          id: node.dataset.carstairsQuestionId || "",
+          answer: node.value || ""
+        }))
       };
 
       resubmitCarstairs.disabled = true;
@@ -1331,6 +1524,9 @@ if (resubmitCarstairs) {
       try {
         const payload = await requestCarstairsVerdict(key, rewriteNotes);
         if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
+        if (activeCarstairsProperty) {
+          activeCarstairsProperty.carstairsJson = JSON.stringify(payload);
+        }
         renderSavedCarstairsMemo(payload);
         if (carstairsRewrite) carstairsRewrite.hidden = true;
         if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });

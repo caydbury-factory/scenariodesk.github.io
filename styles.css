@@ -555,6 +555,7 @@ fieldset span {
 .carstairs-desk,
 .carstairs-memo,
 .carstairs-verdict,
+.carstairs-reasons,
 .carstairs-rewrite {
   padding: clamp(1.1rem, 3vw, 1.8rem);
   background: linear-gradient(145deg, rgba(253, 246, 224, .96), rgba(213, 188, 137, .92));
@@ -572,12 +573,14 @@ fieldset span {
 
 .carstairs-desk h2,
 .carstairs-memo h2,
+.carstairs-reasons h2,
 .carstairs-rewrite h2 {
   color: #5a2618;
 }
 
 .carstairs-desk p:not(.eyebrow),
 .carstairs-memo p:not(.eyebrow),
+.carstairs-reasons p:not(.eyebrow),
 .carstairs-rewrite p:not(.eyebrow) {
   max-width: 760px;
   line-height: 1.7;
@@ -618,6 +621,16 @@ fieldset span {
   margin-bottom: 1.2rem;
   color: #4c3828;
   font-family: "Special Elite", monospace;
+}
+
+.carstairs-reasons ul {
+  margin: 0;
+  padding-left: 1.3rem;
+}
+
+.carstairs-reasons li {
+  margin-bottom: .4rem;
+  line-height: 1.68;
 }
 
 .carstairs-rewrite .reconference-form {
@@ -1926,6 +1939,28 @@ footer {
   background: #fffefa;
 }
 
+#carstairs-questions {
+  display: grid;
+  gap: 1rem;
+}
+
+.executive-question {
+  padding: 1rem;
+  background: #fbf6e9;
+  border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.executive-question h3 {
+  margin: 0 0 .45rem;
+  color: #7d431c;
+}
+
+.executive-question p {
+  margin: 0 0 .65rem;
+  color: #5d4a3a;
+  line-height: 1.66;
+}
+
 .reconference-form button {
   min-height: 58px;
   color: #fffdf7;
@@ -2100,6 +2135,49 @@ footer {
   text-align: center;
   background: #fbf6e9;
   border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.executive-revision {
+  margin-top: 1.4rem;
+  padding: 1.2rem;
+  background: #fbf6e9;
+  border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.executive-revision__memo h3 {
+  margin: 0 0 .55rem;
+  color: #7d431c;
+}
+
+.executive-revision__memo p {
+  line-height: 1.7;
+}
+
+.executive-revision__questions {
+  display: grid;
+  gap: .85rem;
+  margin-top: 1rem;
+}
+
+.executive-revision__questions article {
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.executive-revision__questions h3 {
+  margin: 0 0 .45rem;
+  color: #7d431c;
+}
+
+.executive-revision__questions p {
+  margin: 0 0 .55rem;
+  line-height: 1.68;
+}
+
+.executive-answer {
+  color: #6a5441;
+  font-style: italic;
 }
 
 .treatment-signoff p:not(.eyebrow) {
