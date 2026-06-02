@@ -191,8 +191,14 @@ function statusClass(status) {
 
 function propertyHref(property) {
   const key = property.propertyId || property.title || "dangerous-kisses";
-  const hasCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|executive rewrite|wastebasket/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
-  if (hasCarstairs) {
+  const status = String(property.status || "");
+  const carstairsVerdict = String(property.carstairsVerdict || "");
+  const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
+  const hasExecutiveRewrite = /executive rewrite/i.test(status) || /rewrite/i.test(carstairsVerdict);
+  if (hasExecutiveRewrite) {
+    return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
+  }
+  if (hasFinalCarstairs) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
   }
   const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
@@ -1335,7 +1341,7 @@ function renderCarstairsPacket(property) {
     carstairsWritersLink.href = property.writerRoomUrl || `writers-room.html?property=${encodeURIComponent(property.propertyId || getCarstairsProperty())}`;
   }
   if (carstairsReaderSummary) {
-    carstairsReaderSummary.textContent = property.readerSynopsis || property.logline || "The scenario reader's précis has not yet been filed in the ledger.";
+    carstairsReaderSummary.textContent = property.readerSynopsis || property.logline || "The scenario reader's precis has not yet been filed in the ledger.";
   }
 }
 
@@ -1594,3 +1600,4 @@ if (resubmitCarstairs) {
     if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+
