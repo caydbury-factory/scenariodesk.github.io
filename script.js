@@ -1401,7 +1401,6 @@ function initCarstairsSelector() {
 
 if (sendLetter && readerRoster && readerVerdict) {
   sendLetter.addEventListener("click", async () => {
-    clearWritersRoomExecutiveMode();
     readerRoster.classList.remove("is-locked");
     if (writerCallboard) {
       writerCallboard.hidden = true;
