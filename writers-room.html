@@ -125,7 +125,6 @@
             <p>Send the conference letter. Replies are expected within thirty-six studio hours.</p>
           </article>
           <div class="writer-callboard" id="writer-callboard" hidden></div>
-          <button class="next-writer" type="button" id="next-writer" hidden>Call in Miss Jeanette Marchmont -></button>
           <article class="final-evaluation" id="final-evaluation" hidden>
             <p class="eyebrow">Executive Verdict - Issued by Order of the Scenario Department</p>
             <p class="final-stamp final-stamp--treatments" id="final-stamp">Send to Treatments</p>
@@ -307,6 +306,12 @@
 
           const conferenceHeading = document.querySelector("#conference-heading");
           if (conferenceHeading) conferenceHeading.textContent = `${status}: awaiting conference letter.`;
+
+          const sendLetter = document.querySelector("#send-letter");
+          if (sendLetter) {
+            sendLetter.disabled = false;
+            sendLetter.textContent = "Send Conference Letter";
+          }
 
           if (readerStatus && hasReaderReport(property)) {
             readerStatus.textContent = "Scenario reader report is filed in the ledger.";

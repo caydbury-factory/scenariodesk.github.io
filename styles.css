@@ -1840,6 +1840,15 @@ footer {
 
 .writer-callboard .button {
   min-height: 42px;
+  padding: .8rem 1.25rem;
+  color: #d5a90d;
+  background: #1b130d;
+  border: 2px solid #c99108;
+  border-radius: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .writer-callboard .button.is-active {

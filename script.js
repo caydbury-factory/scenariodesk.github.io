@@ -190,7 +190,7 @@ function statusClass(status) {
 }
 
 function propertyHref(property) {
-  const key = property.propertyId || property.title || "dangerous-kisses";
+  const key = property.propertyId || property.title || "";
   const status = String(property.status || "");
   const carstairsVerdict = String(property.carstairsVerdict || "");
   const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
@@ -504,14 +504,14 @@ const propertyFiles = {
 const defaultPhotoplaywrightVerdicts = [
   {
     initials: "J.M.",
-    next: "Call in Miss Frances Fairchild ->",
+    next: "Consult with Miss Frances Fairchild ->",
     title: "Miss Jeanette Marchmont",
     role: "Chief of Scenario Construction / Structure and Photoplay Architecture",
     body: "The material is playable because its desire is visible: Barbara wants life beyond service, and the cruise gives that want movement, splendor, and danger. The present weakness is architectural. The class conflict must rise by complications rather than by conversation. Give the second act one crisis that cannot be politely explained away, and the climax will have a true motion-picture shape."
   },
   {
     initials: "F.F.",
-    next: "Call in Mr. William Carrington ->",
+    next: "Consult with Mr. William Carrington ->",
     title: "Miss Frances Fairchild",
     role: "Director of Human Interest / Emotional Appeal and Audience Sympathy",
     body: "The audience will care if Barbara's longing is not treated as vanity. She must suffer visibly from the small humiliations of service before the romance promises escape. The mysterious gentleman is useful only if he awakens a wound already present. Let the audience love her before the first stolen glance, and the picture will have tears as well as satin."
@@ -528,14 +528,14 @@ const defaultPhotoplaywrightVerdicts = [
 const cathedralPhotoplaywrightVerdicts = [
   {
     initials: "J.M.",
-    next: "Call in Mr. William Carrington ->",
+    next: "Consult with Mr. William Carrington ->",
     title: "Miss Jeanette Marchmont",
     role: "Chief of Scenario Construction / Structure and Photoplay Architecture",
     body: "The clock is a fine visual engine, but the construction is not yet sound. The first act establishes machinery without establishing sufficient dramatic pressure. By the photoplay rules, the protagonist's desire must drive every scene; Elsa is skilled, but she is not yet forced forward sharply enough. Reconference advised."
   },
   {
     initials: "W.C.",
-    next: "Call in Miss Beulah Thorncroft ->",
+    next: "Consult with Miss Beulah Thorncroft ->",
     title: "Mr. William Carrington",
     role: "Director of Moral Drama / Ethical Conflict and Character Judgment",
     body: "The moral wound is present but underdeveloped. A daughter discovering her father's guilt is powerful material, but the current file lets the question remain atmospheric. It must become a choice with public consequence. By the rule of morality, consequence must follow action. Reconference required."
@@ -628,7 +628,7 @@ const executiveVerdicts = {
 };
 
 const propertyTitle = document.querySelector("#property-title");
-let activePropertyKey = "dangerous-kisses";
+let activePropertyKey = "";
 let reconferenceCount = 0;
 let activeExecutiveVerdict = "treatments";
 
@@ -642,7 +642,7 @@ function makeConferenceVerdicts(writerKeys) {
     return {
       key,
       initials: writer.initials,
-      next: nextWriter ? `Call in ${nextWriter.title} ->` : "Convene the Conference ->",
+      next: nextWriter ? `Consult with ${nextWriter.title} ->` : "Convene the Conference ->",
       title: writer.title,
       role: writer.role,
       body: writer.body
@@ -848,7 +848,7 @@ function applyConferenceVerdicts(payload) {
     return {
       key: writer.key || fallback.key,
       initials: writer.initials || fallback.initials || "S.D.",
-      next: nextWriter ? `Call in ${nextWriter.title || "the next photoplaywright"} ->` : "Convene the Conference ->",
+      next: nextWriter ? `Consult with ${nextWriter.title || "the next photoplaywright"} ->` : "Convene the Conference ->",
       title: writer.title || fallback.title || "Scenario Department Photoplaywright",
       role: writer.role || fallback.role || "Photoplay Conference Verdict",
       body: writer.body || writer.verdict || fallback.body || "The photoplaywright has filed a memorandum for conference."
@@ -871,7 +871,7 @@ function applyConferenceVerdicts(payload) {
 }
 
 function renderSavedConferenceState(property) {
-  if (!/^SPC-/i.test(activePropertyKey)) return false;
+  if (!activePropertyKey || !/^SPC-/i.test(activePropertyKey)) return false;
   const saved = parseSavedConference(property);
   if (!saved || !applyConferenceVerdicts(saved)) return false;
 
@@ -883,7 +883,7 @@ function renderSavedConferenceState(property) {
 
   photoplaywrightIndex = 0;
   renderWriterCallboard();
-  showConferenceSelectionPrompt("This conference packet has already been filed. Call in any photoplaywright below to review the memoranda again.");
+  showConferenceSelectionPrompt("This conference packet has already been filed. Consult with any photoplaywright below to review the memoranda again.");
   showExecutiveVerdict(decideExecutiveVerdict());
 
   if (activeConferenceDecision === "reconference") {
@@ -894,8 +894,8 @@ function renderSavedConferenceState(property) {
 }
 
 if (propertyTitle) {
-  activePropertyKey = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
-  if (!/^SPC-/i.test(activePropertyKey)) {
+  activePropertyKey = new URLSearchParams(window.location.search).get("property") || "";
+  if (activePropertyKey && !/^SPC-/i.test(activePropertyKey)) {
     activePhotoplaywrightVerdicts = activePropertyKey === "cathedral-clock"
       ? cathedralPhotoplaywrightVerdicts
       : defaultPhotoplaywrightVerdicts;
@@ -927,7 +927,6 @@ const sendLetter = document.querySelector("#send-letter");
 const readerRoster = document.querySelector("#reader-roster");
 const readerVerdict = document.querySelector("#reader-verdict");
 const writerCallboard = document.querySelector("#writer-callboard");
-const nextWriter = document.querySelector("#next-writer");
 const conferenceHeading = document.querySelector("#conference-heading");
 const finalEvaluation = document.querySelector("#final-evaluation");
 const finalStamp = document.querySelector("#final-stamp");
@@ -942,6 +941,11 @@ const labelRomance = document.querySelector("#label-romance");
 const labelSpectacle = document.querySelector("#label-spectacle");
 let photoplaywrightIndex = 0;
 let reconferenceInterval;
+
+if (sendLetter && !activePropertyKey) {
+  sendLetter.disabled = true;
+  sendLetter.textContent = "Awaiting Property Packet";
+}
 
 function renderWriterCallboard() {
   if (!writerCallboard) return;
@@ -970,7 +974,7 @@ function renderWriterCallboard() {
   writerCallboard.hidden = false;
 }
 
-function showConferenceSelectionPrompt(message = "Replies have arrived. Call in a photoplaywright to read the memorandum.") {
+function showConferenceSelectionPrompt(message = "Replies have arrived. Consult with a photoplaywright to read the memorandum.") {
   if (!readerVerdict) return;
   readerVerdict.dataset.hasSelection = "false";
   readerVerdict.innerHTML = `
@@ -998,7 +1002,6 @@ function renderPhotoplaywright(index) {
       </div>
     </div>
   `;
-  if (nextWriter) nextWriter.hidden = true;
   renderWriterCallboard();
 }
 
@@ -1089,7 +1092,7 @@ function startReconferenceClock() {
   }, 60000);
 }
 
-if (sendLetter && readerRoster && readerVerdict && nextWriter) {
+if (sendLetter && readerRoster && readerVerdict) {
   sendLetter.addEventListener("click", async () => {
     readerRoster.classList.remove("is-locked");
     if (writerCallboard) {
@@ -1136,16 +1139,6 @@ if (sendLetter && readerRoster && readerVerdict && nextWriter) {
       showConferenceSelectionPrompt();
     }, 900);
   });
-
-  nextWriter.addEventListener("click", () => {
-    if (photoplaywrightIndex < activePhotoplaywrightVerdicts.length - 1) {
-      photoplaywrightIndex += 1;
-      renderPhotoplaywright(photoplaywrightIndex);
-      return;
-    }
-
-    showExecutiveVerdict(decideExecutiveVerdict());
-  });
 }
 
 if (finalAction && reconferenceWorkshop) {
@@ -1183,7 +1176,7 @@ if (updatedConference) {
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
         renderWriterCallboard();
-        showConferenceSelectionPrompt("The updated conference has filed a new packet. Call in any photoplaywright below to review the memoranda.");
+        showConferenceSelectionPrompt("The updated conference has filed a new packet. Consult with any photoplaywright below to review the memoranda.");
         showExecutiveVerdict(decideExecutiveVerdict());
       } catch (error) {
         if (readerVerdict) {
@@ -1264,9 +1257,10 @@ const treatmentBlueprints = {
 };
 
 function getTreatmentProperty() {
-  const key = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
+  const key = new URLSearchParams(window.location.search).get("property") || "";
+  if (!key) return "";
   if (/^SPC-/i.test(key)) return key;
-  return propertyFiles[key] ? key : "dangerous-kisses";
+  return propertyFiles[key] ? key : "";
 }
 
 function selectedTreatmentWriters() {
@@ -1492,6 +1486,10 @@ function renderLiveTreatmentProperty(property) {
   if (kicker) kicker.textContent = `Treatment Room - ${property.propertyId || "SPC"}`;
   treatmentTitle.textContent = title;
   if (treatmentLogline) treatmentLogline.textContent = logline;
+  if (prepareTreatment) {
+    prepareTreatment.disabled = false;
+    prepareTreatment.textContent = "Prepare the Official Treatment";
+  }
 
   const savedTreatment = parseSavedTreatment(property);
   const savedCarstairs = parseSavedCarstairs(property);
@@ -1509,6 +1507,10 @@ function renderLiveTreatmentProperty(property) {
 
 if (treatmentTitle) {
   const key = getTreatmentProperty();
+  if (!key && prepareTreatment) {
+    prepareTreatment.disabled = true;
+    prepareTreatment.textContent = "Awaiting Treatment Packet";
+  }
   if (/^SPC-/i.test(key)) {
     const kicker = document.querySelector(".treatment-property-head .eyebrow");
     if (kicker) kicker.textContent = `Treatment Room - ${key}`;
@@ -1531,7 +1533,7 @@ if (treatmentTitle) {
           treatmentLogline.textContent = "The treatment file could not be reached from the ledger just now.";
         }
       });
-  } else {
+  } else if (key) {
     const file = propertyFiles[key];
     treatmentTitle.textContent = file.title;
     if (treatmentLogline) treatmentLogline.textContent = file.logline;
@@ -1543,9 +1545,16 @@ if (treatmentTitle) {
 if (prepareTreatment && officialTreatment) {
   prepareTreatment.addEventListener("click", async () => {
     const key = getTreatmentProperty();
-    const file = activeTreatmentProperty || propertyFiles[key] || propertyFiles["dangerous-kisses"];
+    const file = activeTreatmentProperty || (key ? propertyFiles[key] : null);
     const selected = selectedTreatmentWriters();
     const authors = selected.map((check) => `${check.value} (${check.dataset.role})`).join("; ");
+
+    if (!key && !activeTreatmentProperty) {
+      if (selectedCount) {
+        selectedCount.textContent = "No filed property is on this desk yet.";
+      }
+      return;
+    }
 
     if (/^SPC-/i.test(key)) {
       prepareTreatment.disabled = true;
@@ -1617,9 +1626,10 @@ const carstairsFiles = {
 };
 
 function getCarstairsProperty() {
-  const key = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
+  const key = new URLSearchParams(window.location.search).get("property") || "";
+  if (!key) return "";
   if (/^SPC-/i.test(key)) return key;
-  return propertyFiles[key] ? key : "dangerous-kisses";
+  return propertyFiles[key] ? key : "";
 }
 
 function showCarstairsVerdict(kind, quote) {
@@ -1643,6 +1653,10 @@ function renderCarstairsPacket(property) {
   activeCarstairsProperty = property;
   document.title = `${property.title || "Untitled Property"} | Carstairs' Office`;
   carstairsTitle.textContent = property.title || "Untitled Property";
+  if (evaluateTreatment) {
+    evaluateTreatment.disabled = false;
+    evaluateTreatment.textContent = "Evaluate the Treatment";
+  }
   if (carstairsLogline) {
     carstairsLogline.textContent = property.logline || property.readerSynopsis || "No filed logline is presently on the desk.";
   }
@@ -1787,6 +1801,10 @@ function startCarstairsClock() {
 
 if (carstairsTitle) {
   const key = getCarstairsProperty();
+  if (!key && evaluateTreatment) {
+    evaluateTreatment.disabled = true;
+    evaluateTreatment.textContent = "Awaiting Treatment Packet";
+  }
   if (/^SPC-/i.test(key)) {
     loadLedgerProperties()
       .then((payload) => {
@@ -1804,7 +1822,7 @@ if (carstairsTitle) {
       .catch(() => {
         if (carstairsLogline) carstairsLogline.textContent = "The executive file could not be drawn from the ledger.";
       });
-  } else {
+  } else if (key) {
     const file = propertyFiles[key];
     carstairsTitle.textContent = file.title;
     if (carstairsLogline) carstairsLogline.textContent = file.logline;
@@ -1814,6 +1832,12 @@ if (carstairsTitle) {
 if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
   evaluateTreatment.addEventListener("click", async () => {
     const key = getCarstairsProperty();
+    if (!key) {
+      carstairsMemoTitle.textContent = "No packet has been sent upstairs.";
+      carstairsOpinion.textContent = "Carstairs cannot evaluate an empty desk. Send a treatment upstairs and the executive packet will be filed here.";
+      carstairsMemo.hidden = false;
+      return;
+    }
     if (/^SPC-/i.test(key)) {
       evaluateTreatment.disabled = true;
       evaluateTreatment.textContent = "Carstairs Is Reading";
@@ -1867,6 +1891,15 @@ if (resubmitCarstairs) {
   resubmitCarstairs.addEventListener("click", async () => {
     const key = getCarstairsProperty();
     if (/^SPC-/i.test(key)) {
+      if (!activeCarstairsPayload || activeCarstairsPayload.verdict !== "rewrite") {
+        if (carstairsMemoTitle && carstairsOpinion) {
+          carstairsMemoTitle.textContent = "There is no rewrite order on file.";
+          carstairsOpinion.textContent = "Carstairs can only receive a return packet when he has actually demanded executive repairs.";
+          carstairsMemo.hidden = false;
+        }
+        return;
+      }
+
       const questionNodes = Array.from(document.querySelectorAll("[data-carstairs-question-id]"));
       const rewriteNotes = {
         questions: normalizeCarstairsQuestions(activeCarstairsPayload).map((question) => ({
@@ -1882,6 +1915,11 @@ if (resubmitCarstairs) {
 
       resubmitCarstairs.disabled = true;
       resubmitCarstairs.textContent = "Sending Back Upstairs";
+      if (carstairsMemoTitle && carstairsOpinion) {
+        carstairsMemoTitle.textContent = "Carstairs is reading the returned treatment.";
+        carstairsOpinion.textContent = "The revised packet has gone upstairs again. The executive office is comparing the repairs against the earlier memorandum.";
+        carstairsMemo.hidden = false;
+      }
 
       try {
         const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key, rewriteNotes));
