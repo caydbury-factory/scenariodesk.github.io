@@ -32,7 +32,7 @@
       <a href="pulp-archives.html">Pulp Archives</a>
       <a href="submit-property.html">Submit Property</a>
       <a href="photoplay-rules.html">Photoplay Rules</a>
-      <a href="writers-room.html?property=dangerous-kisses">Writers' Room</a>
+      <a href="writers-room.html">Writers' Room</a>
       <a href="treatment-room.html">Treatment Room</a>
       <a href="carstairs-office.html">Carstairs' Office</a>
     </nav>
@@ -60,10 +60,10 @@
           </div>
 
           <div class="desk-totals" aria-label="Scenario desk totals">
-            <article><strong id="desk-total-properties">4</strong><span>Properties on Desk</span></article>
-            <article><strong id="desk-total-conference">1</strong><span>Conference Ready</span></article>
-            <article><strong id="desk-total-mined">2</strong><span>Mined Archive</span></article>
-            <article><strong id="desk-total-reader">1</strong><span>Needs Reader</span></article>
+            <article><strong id="desk-total-properties">0</strong><span>Properties on Desk</span></article>
+            <article><strong id="desk-total-conference">0</strong><span>Conference Ready</span></article>
+            <article><strong id="desk-total-mined">0</strong><span>Mined Archive</span></article>
+            <article><strong id="desk-total-reader">0</strong><span>Needs Reader</span></article>
           </div>
         </div>
 
@@ -75,168 +75,16 @@
         </div>
 
         <div class="property-board property-board--desk" id="property-board">
-          <a class="property-card property-card--active" href="writers-room.html?property=dangerous-kisses">
+          <article class="property-card property-card--active property-card--loading">
             <div class="property-card__clip"></div>
-            <p class="stamp stamp--green">Conference Ready</p>
-            <h3>Dangerous Kisses</h3>
-            <dl>
-              <dt>Nature</dt><dd>Pulp Magazine - Mined</dd>
-              <dt>Reader</dt><dd>Beatrice "Bee" Vance</dd>
-              <dt>Score</dt><dd>9/10</dd>
-            </dl>
-            <p>A lady's maid is saved by a mysterious man aboard a Mediterranean cruise, igniting forbidden love across class lines.</p>
-            <span class="button button--small">Open Writers' Room</span>
-          </a>
-
-          <a class="property-card" href="writers-room.html?property=cathedral-clock">
-            <div class="property-card__clip"></div>
-            <p class="stamp">Needs Conference</p>
-            <h3>The Cathedral Clock</h3>
-            <dl>
-              <dt>Nature</dt><dd>Original Premise</dd>
-              <dt>Reader</dt><dd>Aloysius "Al" Finch</dd>
-              <dt>Score</dt><dd>8/10</dd>
-            </dl>
-            <p>A woman clockmaker discovers that her late father's cathedral mechanism hides the schedule of a political assassination.</p>
-            <span class="button button--small">Open Writers' Room</span>
-          </a>
-
-          <a class="property-card" href="writers-room.html?property=lantern-bitter-creek">
-            <div class="property-card__clip"></div>
-            <p class="stamp">Mined Archive</p>
-            <h3>The Lantern at Bitter Creek</h3>
-            <dl>
-              <dt>Nature</dt><dd>Pulp Magazine - Mined</dd>
-              <dt>Reader</dt><dd>T. J. "Texas" Mahoney</dd>
-              <dt>Score</dt><dd>8/10</dd>
-            </dl>
-            <p>A disgraced surveyor escorts a widow across a flood-threatened mountain pass and discovers the railroad fraud that ruined them both.</p>
-            <span class="button button--small">Open Writers' Room</span>
-          </a>
-
-          <a class="property-card" href="writers-room.html?property=glass-duchess">
-            <div class="property-card__clip"></div>
-            <p class="stamp">Needs Reader</p>
-            <h3>The Glass Duchess</h3>
-            <dl>
-              <dt>Nature</dt><dd>Pulp Magazine - Mined</dd>
-              <dt>Reader</dt><dd>Awaiting assignment</dd>
-              <dt>Score</dt><dd>Pending</dd>
-            </dl>
-            <p>A society impostor wins a title, loses a sister, and must choose between reputation and confession on opening night.</p>
-            <span class="button button--small">Open Writers' Room</span>
-          </a>
+            <p class="stamp">Loading Ledger</p>
+            <h3>Preparing the current desk holdings...</h3>
+            <p>The banker lamp is on while the live Scenario Department ledger is consulted.</p>
+          </article>
         </div>
       </section>
     </main>
-    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL - PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS - MCMXXI</span></footer>
     <script src="script.js"></script>
-    <script>
-      (() => {
-        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
-        const board = document.querySelector("#property-board");
-        const status = document.querySelector("#desk-ledger-status");
-        if (!board || window.scenarioDeskLedgerWired) return;
-        window.scenarioDeskLedgerWired = true;
-
-        function escapeHtml(value) {
-          return String(value || "").replace(/[&<>"']/g, (char) => ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            "\"": "&quot;",
-            "'": "&#39;"
-          })[char]);
-        }
-
-        function statusClass(value) {
-          const normalized = String(value || "").toLowerCase();
-          if (normalized.includes("conference ready") || normalized.includes("greenlit") || normalized.includes("treatment")) return "stamp--green";
-          if (normalized.includes("wastebasket")) return "rubber--red";
-          return "";
-        }
-
-        function propertyHref(property) {
-          const key = property.propertyId || property.title || "dangerous-kisses";
-          return `writers-room.html?property=${encodeURIComponent(key)}`;
-        }
-
-        function updateTotals(properties) {
-          document.querySelector("#desk-total-properties").textContent = String(properties.length);
-          document.querySelector("#desk-total-conference").textContent = String(properties.filter((property) => /conference ready/i.test(property.status || "")).length);
-          document.querySelector("#desk-total-mined").textContent = String(properties.filter((property) => /mined/i.test(property.status || "") || /pulp/i.test(property.sourceType || "")).length);
-          document.querySelector("#desk-total-reader").textContent = String(properties.filter((property) => /needs reader/i.test(property.status || "")).length);
-        }
-
-        function render(properties) {
-          if (!Array.isArray(properties) || !properties.length) {
-            if (status) status.textContent = "The live ledger is empty, so the desk is showing its sample property cards.";
-            return;
-          }
-
-          board.innerHTML = properties.map((property, index) => {
-            const stamp = property.status || "Needs Reader";
-            const source = property.sourceType || "Unclassified Property";
-            const reader = property.reader || "Awaiting assignment";
-            const score = property.suitabilityScore || "Pending";
-            const summary = property.logline || property.notes || "No synopsis has been entered for this property yet.";
-            const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
-
-            return `
-              <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
-                <div class="property-card__clip"></div>
-                <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
-                ${idLine}
-                <h3>${escapeHtml(property.title || "Untitled Property")}</h3>
-                <dl>
-                  <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
-                  <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
-                  <dt>Score</dt><dd>${escapeHtml(score)}</dd>
-                </dl>
-                <p>${escapeHtml(summary)}</p>
-                <span class="button button--small">Open Writers' Room</span>
-              </a>
-            `;
-          }).join("");
-
-          updateTotals(properties);
-          if (status) status.textContent = "Live ledger connected. Showing current properties from the archive.";
-        }
-
-        function loadLedger() {
-          const callbackName = `scenarioLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-          const script = document.createElement("script");
-          const timeout = window.setTimeout(() => {
-            cleanup();
-            if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
-          }, 12000);
-
-          function cleanup() {
-            window.clearTimeout(timeout);
-            delete window[callbackName];
-            script.remove();
-          }
-
-          window[callbackName] = (payload) => {
-            cleanup();
-            if (!payload || !payload.ok) {
-              if (status) status.textContent = "The ledger returned an error, so the desk is showing its sample property cards.";
-              return;
-            }
-            render(payload.properties || []);
-          };
-
-          script.onerror = () => {
-            cleanup();
-            if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
-          };
-
-          script.src = `${backendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
-          document.body.appendChild(script);
-        }
-
-        loadLedger();
-      })();
-    </script>
   </body>
 </html>

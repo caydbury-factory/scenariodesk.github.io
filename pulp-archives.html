@@ -139,45 +139,33 @@
         </div>
 
         <div class="archive-stats">
-          <div><strong>2,143</strong><span>Issue PDFs</span></div>
-          <div><strong>18</strong><span>Magazine Runs</span></div>
-          <div><strong>41,280</strong><span>Detected Stories</span></div>
-          <div><strong>312</strong><span>High-Promise Leads</span></div>
+          <div><strong id="archive-total-files">0</strong><span>Indexed Files</span></div>
+          <div><strong id="archive-total-magazines">0</strong><span>Magazine Runs</span></div>
+          <div><strong id="archive-total-books">0</strong><span>Book Runs</span></div>
+          <div><strong id="archive-total-selected">0</strong><span>Selected for Mining</span></div>
         </div>
 
         <div class="archive-console">
           <aside class="archive-shelves" id="archive-shelves" aria-label="Archive holdings">
-            <button class="archive-issue is-selected" type="button" data-issue="argosy">
-              <span>Argosy All-Story Weekly</span>
-              <small>1928 / May 12 / PDF indexed</small>
-            </button>
-            <button class="archive-issue" type="button" data-issue="adventure">
-              <span>Adventure</span>
-              <small>1931 / February / PDF ready</small>
-            </button>
-            <button class="archive-issue" type="button" data-issue="detective">
-              <span>Detective Story Magazine</span>
-              <small>1927 / July 9 / OCR pending</small>
-            </button>
-            <button class="archive-issue" type="button" data-issue="love">
-              <span>Love Story Magazine</span>
-              <small>1930 / October / PDF ready</small>
+            <button class="archive-issue is-selected" type="button" disabled>
+              <span>Connecting to Drive archive...</span>
+              <small>The live holdings will appear here in a moment.</small>
             </button>
           </aside>
 
           <section class="selected-issue" aria-live="polite">
             <p class="eyebrow">Selected Issue</p>
-            <h2 id="issue-title">Argosy All-Story Weekly</h2>
+            <h2 id="issue-title">Awaiting live archive selection</h2>
             <label class="archive-picker">Select Issue
               <select id="archive-issue-select">
-                <option>Argosy All-Story Weekly - May 12, 1928</option>
+                <option>Connecting to Drive archive...</option>
               </select>
             </label>
             <dl>
-              <dt>Year</dt><dd id="issue-year">1928</dd>
-              <dt>Issue</dt><dd id="issue-number">May 12</dd>
-              <dt>File</dt><dd id="issue-pdf">argosy-allstory-1928-05-12.pdf</dd>
-              <dt>Status</dt><dd id="issue-status">Indexed and ready for mining</dd>
+              <dt>Year</dt><dd id="issue-year">Uncataloged</dd>
+              <dt>Issue</dt><dd id="issue-number">Awaiting selection</dd>
+              <dt>File</dt><dd id="issue-pdf">No file selected yet</dd>
+              <dt>Status</dt><dd id="issue-status">Connecting to live archive catalog</dd>
             </dl>
             <p id="archive-ledger-status" class="archive-live-status">Connecting to the Drive archive catalog...</p>
             <div class="workflow workflow--compact">
@@ -200,7 +188,7 @@
           </div>
           <form class="miner-form">
             <label>Mining Criteria
-              <textarea>Find stories with a clear protagonist, visible conflict, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
+              <textarea>Find stories with a clear protagonist, adaptation value, strong setting, moral pressure, and at least one cinematic set piece.</textarea>
             </label>
             <button class="button" type="button" id="mine-issue">Mine Selected Issues</button>
           </form>
@@ -208,18 +196,9 @@
 
         <div class="story-cards story-cards--archive" id="archive-results">
           <article class="report">
-            <p class="stamp stamp--green">High Potential</p>
-            <h3>The Lantern at Bitter Creek</h3>
-            <dl><dt>Author</dt><dd>Marian Vale</dd><dt>Source</dt><dd>Argosy All-Story Weekly, May 12, 1928</dd></dl>
-            <p>A disgraced surveyor escorts a widow across a flood-threatened mountain pass and discovers the railroad fraud that ruined them both.</p>
-            <a class="button button--small" href="submit-property.html">Prepare Property Form</a>
-          </article>
-          <article class="report">
-            <p class="stamp">Needs Conference</p>
-            <h3>The Glass Duchess</h3>
-            <dl><dt>Author</dt><dd>E. L. Markham</dd><dt>Source</dt><dd>Love Story Magazine, October 1930</dd></dl>
-            <p>A society impostor wins a title, loses a sister, and must choose between reputation and confession on opening night.</p>
-            <a class="button button--small" href="submit-property.html">Prepare Property Form</a>
+            <p class="stamp">Archive Ready</p>
+            <h3>Awaiting mining pass</h3>
+            <p>Select one or more live issues from the Drive archive and send them to the miner to generate story candidates here.</p>
           </article>
         </div>
       </section>
@@ -428,6 +407,8 @@
 
           if (!selectedIssues.length) {
             selectedArchiveIssues.innerHTML = "<li>No archive issues selected yet.</li>";
+            const selectedCount = document.querySelector("#archive-total-selected");
+            if (selectedCount) selectedCount.textContent = "0";
             return;
           }
 
@@ -445,21 +426,23 @@
               renderSelectedIssues();
             });
           });
+
+          const selectedCount = document.querySelector("#archive-total-selected");
+          if (selectedCount) selectedCount.textContent = String(selectedIssues.length);
         }
 
         function renderArchiveStats() {
-          const statBoxes = document.querySelectorAll(".archive-stats div");
           const magazines = new Set(archiveRecords.map((record) => record.magazine).filter(Boolean));
-          const years = new Set(archiveRecords.map((record) => record.year).filter(Boolean));
+          const books = archiveRecords.filter((record) => /book|novel/i.test(String(record.category || record.collectionType || record.sourceType || record.magazine || "")));
+          const totalFiles = document.querySelector("#archive-total-files");
+          const totalMagazines = document.querySelector("#archive-total-magazines");
+          const totalBooks = document.querySelector("#archive-total-books");
+          const totalSelected = document.querySelector("#archive-total-selected");
 
-          if (statBoxes[0]) statBoxes[0].querySelector("strong").textContent = String(archiveRecords.length);
-          if (statBoxes[0]) statBoxes[0].querySelector("span").textContent = "Indexed Files";
-          if (statBoxes[1]) statBoxes[1].querySelector("strong").textContent = String(magazines.size);
-          if (statBoxes[1]) statBoxes[1].querySelector("span").textContent = "Magazine Runs";
-          if (statBoxes[2]) statBoxes[2].querySelector("strong").textContent = String(years.size);
-          if (statBoxes[2]) statBoxes[2].querySelector("span").textContent = "Cataloged Years";
-          if (statBoxes[3]) statBoxes[3].querySelector("strong").textContent = "Live";
-          if (statBoxes[3]) statBoxes[3].querySelector("span").textContent = "Drive Catalog";
+          if (totalFiles) totalFiles.textContent = String(archiveRecords.length);
+          if (totalMagazines) totalMagazines.textContent = String(magazines.size);
+          if (totalBooks) totalBooks.textContent = String(books.length ? new Set(books.map((record) => record.magazine || record.title).filter(Boolean)).size : 0);
+          if (totalSelected) totalSelected.textContent = String(selectedIssues.length);
         }
 
         if (selectArchiveIssue) {

@@ -1830,6 +1830,28 @@ footer {
   cursor: pointer;
 }
 
+.writer-callboard {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.writer-callboard .button {
+  min-height: 42px;
+}
+
+.writer-callboard .button.is-active {
+  color: #fff4d7;
+  background: #5b2415;
+  border-color: #c99108;
+}
+
+.property-card--loading {
+  pointer-events: none;
+}
+
 .final-evaluation {
   margin-top: 1.4rem;
   padding: clamp(1.2rem, 4vw, 2rem);

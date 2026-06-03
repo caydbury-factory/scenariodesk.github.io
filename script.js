@@ -230,7 +230,17 @@ function renderScenarioDesk(properties) {
   const board = document.querySelector("#property-board");
   const status = document.querySelector("#desk-ledger-status");
   if (!board || !Array.isArray(properties) || !properties.length) {
-    if (status) status.textContent = "The live ledger is empty, so the desk is showing its sample property cards.";
+    if (board) {
+      board.innerHTML = `
+        <article class="property-card property-card--active property-card--loading">
+          <div class="property-card__clip"></div>
+          <p class="stamp">Ledger Empty</p>
+          <h3>No current properties are on the desk.</h3>
+          <p>Submit a new property or mine the archives to place fresh material under the banker lamp.</p>
+        </article>
+      `;
+    }
+    if (status) status.textContent = "The live ledger is empty. Submit a property or mine the archives to begin a new file.";
     return;
   }
 
@@ -283,15 +293,80 @@ if (document.querySelector("#property-board")) {
     })
     .catch(() => {
       const status = document.querySelector("#desk-ledger-status");
-      if (status) status.textContent = "The live ledger could not be reached, so the desk is showing its sample property cards.";
+      if (status) status.textContent = "The live ledger could not be reached. The desk is waiting for a fresh connection.";
     });
 }
 
+function getManuscriptTextarea() {
+  return document.querySelector("[name='manuscriptText']");
+}
+
+function updateSubmissionStatus(message, kind = "") {
+  if (!submissionStatus) return;
+  submissionStatus.textContent = message;
+  submissionStatus.className = kind ? `submission-status ${kind}` : "submission-status";
+}
+
+function loadPdfJs() {
+  if (!window.__scenarioPdfJsPromise) {
+    window.__scenarioPdfJsPromise = import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.min.mjs");
+  }
+  return window.__scenarioPdfJsPromise;
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await loadPdfJs();
+  if (pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.min.mjs";
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const pages = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const text = await page.getTextContent();
+    const lines = text.items.map((item) => item.str || "").join(" ").replace(/\s+/g, " ").trim();
+    if (lines) pages.push(lines);
+  }
+
+  return pages.join("\n\n");
+}
+
 if (manuscriptFile && uploadLabel) {
-  manuscriptFile.addEventListener("change", () => {
-    uploadLabel.textContent = manuscriptFile.files.length
-      ? manuscriptFile.files[0].name
-      : "Place manuscript here - or paste text below";
+  manuscriptFile.addEventListener("change", async () => {
+    const file = manuscriptFile.files && manuscriptFile.files[0];
+    const textarea = getManuscriptTextarea();
+
+    uploadLabel.textContent = file ? file.name : "Place manuscript here - or paste text below";
+    if (!file || !textarea) return;
+
+    try {
+      if (/\.txt$/i.test(file.name) || /^text\//i.test(file.type || "")) {
+        updateSubmissionStatus("Reading the manuscript text into the property file...");
+        textarea.value = await file.text();
+        updateSubmissionStatus("Manuscript text loaded into the property file.", "submission-status--success");
+        return;
+      }
+
+      if (/\.pdf$/i.test(file.name) || /pdf/i.test(file.type || "")) {
+        updateSubmissionStatus("Reading the OCR PDF for manuscript text...");
+        const extractedText = await extractPdfText(file);
+        textarea.value = extractedText;
+        updateSubmissionStatus(
+          extractedText.trim()
+            ? "OCR PDF text loaded into the property file."
+            : "The PDF opened, but no readable text was found. Paste the OCR text below if needed.",
+          extractedText.trim() ? "submission-status--success" : "submission-status--error"
+        );
+        return;
+      }
+
+      updateSubmissionStatus("This file type cannot be read directly here yet. Paste the manuscript text below.", "submission-status--error");
+    } catch (error) {
+      updateSubmissionStatus("The manuscript file could not be read cleanly. Paste the text below for this pass.", "submission-status--error");
+    }
   });
 }
 
@@ -807,7 +882,8 @@ function renderSavedConferenceState(property) {
   }
 
   photoplaywrightIndex = 0;
-  renderPhotoplaywright(photoplaywrightIndex);
+  renderWriterCallboard();
+  showConferenceSelectionPrompt("This conference packet has already been filed. Call in any photoplaywright below to review the memoranda again.");
   showExecutiveVerdict(decideExecutiveVerdict());
 
   if (activeConferenceDecision === "reconference") {
@@ -819,35 +895,38 @@ function renderSavedConferenceState(property) {
 
 if (propertyTitle) {
   activePropertyKey = new URLSearchParams(window.location.search).get("property") || "dangerous-kisses";
-  activePhotoplaywrightVerdicts = activePropertyKey === "cathedral-clock"
-    ? cathedralPhotoplaywrightVerdicts
-    : defaultPhotoplaywrightVerdicts;
-  const file = propertyFiles[activePropertyKey] || propertyFiles["dangerous-kisses"];
-  document.querySelector("#property-kicker").textContent = file.kicker;
-  propertyTitle.textContent = file.title;
-  document.querySelector("#property-logline").textContent = file.logline;
-  document.querySelector("#property-notes").innerHTML = `<strong>Submitter's Notes:</strong> ${file.notes}`;
-  document.querySelector("#reader-name").textContent = file.reader;
-  document.querySelector("#reader-synopsis").textContent = file.synopsis;
-  document.querySelector("#sequence-list").innerHTML = file.sequences.map(([title, body, value]) => `
-    <div class="analysis-card">
-      <h3>${title}</h3>
-      <p>${body}</p>
-      <em>Dramatic value: ${value}</em>
-    </div>
-  `).join("");
-  document.querySelector("#archetype-list").innerHTML = file.archetypes.map(([name, type, body]) => `
-    <div class="analysis-card">
-      <h3>${name}</h3>
-      <em>${type}</em>
-      <p>${body}</p>
-    </div>
-  `).join("");
+  if (!/^SPC-/i.test(activePropertyKey)) {
+    activePhotoplaywrightVerdicts = activePropertyKey === "cathedral-clock"
+      ? cathedralPhotoplaywrightVerdicts
+      : defaultPhotoplaywrightVerdicts;
+    const file = propertyFiles[activePropertyKey] || propertyFiles["dangerous-kisses"];
+    document.querySelector("#property-kicker").textContent = file.kicker;
+    propertyTitle.textContent = file.title;
+    document.querySelector("#property-logline").textContent = file.logline;
+    document.querySelector("#property-notes").innerHTML = `<strong>Submitter's Notes:</strong> ${file.notes}`;
+    document.querySelector("#reader-name").textContent = file.reader;
+    document.querySelector("#reader-synopsis").textContent = file.synopsis;
+    document.querySelector("#sequence-list").innerHTML = file.sequences.map(([title, body, value]) => `
+      <div class="analysis-card">
+        <h3>${title}</h3>
+        <p>${body}</p>
+        <em>Dramatic value: ${value}</em>
+      </div>
+    `).join("");
+    document.querySelector("#archetype-list").innerHTML = file.archetypes.map(([name, type, body]) => `
+      <div class="analysis-card">
+        <h3>${name}</h3>
+        <em>${type}</em>
+        <p>${body}</p>
+      </div>
+    `).join("");
+  }
 }
 
 const sendLetter = document.querySelector("#send-letter");
 const readerRoster = document.querySelector("#reader-roster");
 const readerVerdict = document.querySelector("#reader-verdict");
+const writerCallboard = document.querySelector("#writer-callboard");
 const nextWriter = document.querySelector("#next-writer");
 const conferenceHeading = document.querySelector("#conference-heading");
 const finalEvaluation = document.querySelector("#final-evaluation");
@@ -864,10 +943,49 @@ const labelSpectacle = document.querySelector("#label-spectacle");
 let photoplaywrightIndex = 0;
 let reconferenceInterval;
 
+function renderWriterCallboard() {
+  if (!writerCallboard) return;
+  if (!Array.isArray(activePhotoplaywrightVerdicts) || !activePhotoplaywrightVerdicts.length) {
+    writerCallboard.hidden = true;
+    writerCallboard.innerHTML = "";
+    return;
+  }
+
+  writerCallboard.innerHTML = activePhotoplaywrightVerdicts.map((verdict, index) => `
+    <button
+      type="button"
+      class="button button--small ${index === photoplaywrightIndex && readerVerdict?.dataset.hasSelection === "true" ? "is-active" : ""}"
+      data-writer-index="${index}">
+      ${escapeHtml(verdict.title || `Photoplaywright ${index + 1}`)}
+    </button>
+  `).join("");
+
+  writerCallboard.querySelectorAll("[data-writer-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.writerIndex || 0);
+      renderPhotoplaywright(index);
+    });
+  });
+
+  writerCallboard.hidden = false;
+}
+
+function showConferenceSelectionPrompt(message = "Replies have arrived. Call in a photoplaywright to read the memorandum.") {
+  if (!readerVerdict) return;
+  readerVerdict.dataset.hasSelection = "false";
+  readerVerdict.innerHTML = `
+    <p class="eyebrow">Writers' Verdicts</p>
+    <h3>Photoplaywright memoranda on file</h3>
+    <p>${escapeHtml(message)}</p>
+  `;
+}
+
 function renderPhotoplaywright(index) {
   const verdict = activePhotoplaywrightVerdicts[index];
-  if (!verdict || !readerVerdict || !nextWriter || !conferenceHeading) return;
+  if (!verdict || !readerVerdict || !conferenceHeading) return;
 
+  photoplaywrightIndex = index;
+  readerVerdict.dataset.hasSelection = "true";
   conferenceHeading.textContent = "Interested photoplaywrights have replied.";
   readerVerdict.innerHTML = `
     <p class="eyebrow">The Writers' Verdicts</p>
@@ -880,8 +998,8 @@ function renderPhotoplaywright(index) {
       </div>
     </div>
   `;
-  nextWriter.textContent = verdict.next;
-  nextWriter.hidden = false;
+  if (nextWriter) nextWriter.hidden = true;
+  renderWriterCallboard();
 }
 
 function decideExecutiveVerdict() {
@@ -974,6 +1092,10 @@ function startReconferenceClock() {
 if (sendLetter && readerRoster && readerVerdict && nextWriter) {
   sendLetter.addEventListener("click", async () => {
     readerRoster.classList.remove("is-locked");
+    if (writerCallboard) {
+      writerCallboard.hidden = true;
+      writerCallboard.innerHTML = "";
+    }
     readerVerdict.innerHTML = `
       <p class="eyebrow">Writers' Verdicts</p>
       <h3>Conference letter delivered</h3>
@@ -994,6 +1116,10 @@ if (sendLetter && readerRoster && readerVerdict && nextWriter) {
         const payload = await requestConferenceVerdicts();
         if (applyConferenceVerdicts(payload)) {
           if (conferenceHeading) conferenceHeading.textContent = "Photoplaywright replies received.";
+          renderWriterCallboard();
+          showConferenceSelectionPrompt();
+          showExecutiveVerdict(decideExecutiveVerdict());
+          return;
         }
       } catch (error) {
         readerVerdict.innerHTML = `
@@ -1006,7 +1132,8 @@ if (sendLetter && readerRoster && readerVerdict && nextWriter) {
 
     window.setTimeout(() => {
       photoplaywrightIndex = 0;
-      renderPhotoplaywright(photoplaywrightIndex);
+      renderWriterCallboard();
+      showConferenceSelectionPrompt();
     }, 900);
   });
 
@@ -1055,7 +1182,8 @@ if (updatedConference) {
         });
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
-        renderPhotoplaywright(photoplaywrightIndex);
+        renderWriterCallboard();
+        showConferenceSelectionPrompt("The updated conference has filed a new packet. Call in any photoplaywright below to review the memoranda.");
         showExecutiveVerdict(decideExecutiveVerdict());
       } catch (error) {
         if (readerVerdict) {
@@ -1382,6 +1510,12 @@ function renderLiveTreatmentProperty(property) {
 if (treatmentTitle) {
   const key = getTreatmentProperty();
   if (/^SPC-/i.test(key)) {
+    const kicker = document.querySelector(".treatment-property-head .eyebrow");
+    if (kicker) kicker.textContent = `Treatment Room - ${key}`;
+    treatmentTitle.textContent = "Preparing Treatment Packet";
+    if (treatmentLogline) {
+      treatmentLogline.textContent = "The current property packet will appear here as soon as the ledger finishes loading.";
+    }
     loadLedgerProperties()
       .then((payload) => {
         if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
@@ -1391,8 +1525,11 @@ if (treatmentTitle) {
         if (property) renderLiveTreatmentProperty(property);
       })
       .catch(() => {
-        const kicker = document.querySelector(".treatment-property-head .eyebrow");
         if (kicker) kicker.textContent = "Treatment Room - ledger unavailable";
+        treatmentTitle.textContent = "Treatment Packet Unavailable";
+        if (treatmentLogline) {
+          treatmentLogline.textContent = "The treatment file could not be reached from the ledger just now.";
+        }
       });
   } else {
     const file = propertyFiles[key];
@@ -1427,7 +1564,9 @@ if (prepareTreatment && officialTreatment) {
       } catch (error) {
         prepareTreatment.textContent = "Prepare the Official Treatment";
         prepareTreatment.disabled = false;
-        renderTreatmentDocument(file, treatmentBlueprints["dangerous-kisses"], authors, key);
+        if (selectedCount) {
+          selectedCount.textContent = "The treatment clerk could not file the live treatment just now. Try again.";
+        }
       }
       return;
     }
