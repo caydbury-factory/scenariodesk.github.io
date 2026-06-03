@@ -62,6 +62,25 @@
           <div id="carstairs-reasons-list"></div>
         </article>
 
+        <article class="carstairs-appeal" id="carstairs-appeal" hidden>
+          <p class="eyebrow">Executive Appeal</p>
+          <h2>Request Reconsideration</h2>
+          <p>One appeal may be filed if the treatment has a production virtue Carstairs may have undervalued.</p>
+          <button type="button" id="open-carstairs-appeal">Request Reconsideration</button>
+          <div class="reconference-form" id="carstairs-appeal-form" hidden>
+            <label>
+              What did Carstairs overlook?
+              <textarea id="carstairs-appeal-overlooked" placeholder="Name the dramatic strength, audience feeling, or photoplay promise that deserves another look."></textarea>
+            </label>
+            <label>
+              What production value or photoplay rule deserves a second look?
+              <textarea id="carstairs-appeal-value" placeholder="Point to spectacle, moral force, star value, title appeal, emotional clarity, or another rule from the packet."></textarea>
+            </label>
+            <button type="button" id="submit-carstairs-appeal">Submit Reconsideration</button>
+            <p class="scenario-reader-status" id="carstairs-appeal-status" aria-live="polite"></p>
+          </div>
+        </article>
+
         <article class="carstairs-verdict" id="carstairs-verdict" hidden>
           <p class="eyebrow">Final Executive Disposition</p>
           <p class="final-stamp final-stamp--treatments" id="carstairs-stamp">Greenlight</p>

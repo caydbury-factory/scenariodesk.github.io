@@ -557,7 +557,8 @@ fieldset span {
 .carstairs-memo,
 .carstairs-verdict,
 .carstairs-reasons,
-.carstairs-rewrite {
+.carstairs-rewrite,
+.carstairs-appeal {
   padding: clamp(1.1rem, 3vw, 1.8rem);
   background: linear-gradient(145deg, rgba(253, 246, 224, .96), rgba(213, 188, 137, .92));
   border: 1px solid rgba(240, 204, 119, .36);
@@ -576,7 +577,8 @@ fieldset span {
 .carstairs-dossier h2,
 .carstairs-memo h2,
 .carstairs-reasons h2,
-.carstairs-rewrite h2 {
+.carstairs-rewrite h2,
+.carstairs-appeal h2 {
   color: #5a2618;
 }
 
@@ -584,7 +586,8 @@ fieldset span {
 .carstairs-dossier p:not(.eyebrow),
 .carstairs-memo p:not(.eyebrow),
 .carstairs-reasons p:not(.eyebrow),
-.carstairs-rewrite p:not(.eyebrow) {
+.carstairs-rewrite p:not(.eyebrow),
+.carstairs-appeal p:not(.eyebrow) {
   max-width: 760px;
   line-height: 1.7;
 }
@@ -604,6 +607,20 @@ fieldset span {
 
 #evaluate-treatment:disabled {
   opacity: .58;
+}
+
+.carstairs-appeal > button {
+  width: fit-content;
+  min-height: 52px;
+  padding: .75rem 1rem;
+  color: #fdf6df;
+  background: #1b130d;
+  border: 2px solid #c99108;
+  border-radius: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .carstairs-verdict {
@@ -636,6 +653,16 @@ fieldset span {
   line-height: 1.68;
 }
 
+.carstairs-reasons__analysis {
+  display: grid;
+  gap: .85rem;
+  margin-bottom: 1rem;
+}
+
+.carstairs-reasons__analysis p {
+  margin: 0;
+}
+
 .carstairs-dossier {
   display: grid;
   gap: .85rem;
@@ -651,7 +678,8 @@ fieldset span {
   width: fit-content;
 }
 
-.carstairs-rewrite .reconference-form {
+.carstairs-rewrite .reconference-form,
+.carstairs-appeal .reconference-form {
   margin-top: 1.2rem;
 }
 

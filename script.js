@@ -30,7 +30,7 @@ const memoranda = {
 };
 
 const revealTargets = document.querySelectorAll(
-  "main > section, .desk-sheet, .property-card, .dossier-sheet, .analysis-sheet, .letter-envelope, .reader-roster, .treatment-assignment, .official-treatment, .carstairs-desk, .carstairs-memo, .carstairs-verdict, .carstairs-rewrite, .rules-sheet, .source-shelf, .archive-stats > div, .selected-issue, .miner-desk, .report"
+  "main > section, .desk-sheet, .property-card, .dossier-sheet, .analysis-sheet, .letter-envelope, .reader-roster, .treatment-assignment, .official-treatment, .carstairs-desk, .carstairs-memo, .carstairs-verdict, .carstairs-rewrite, .carstairs-appeal, .rules-sheet, .source-shelf, .archive-stats > div, .selected-issue, .miner-desk, .report"
 );
 
 if ("IntersectionObserver" in window) {
@@ -1256,6 +1256,8 @@ function showCarstairsDeskMessage(message, detail) {
   if (carstairsMemo) carstairsMemo.hidden = true;
   if (carstairsVerdict) carstairsVerdict.hidden = true;
   if (carstairsRewrite) carstairsRewrite.hidden = true;
+  if (carstairsAppeal) carstairsAppeal.hidden = true;
+  if (carstairsAppealForm) carstairsAppealForm.hidden = true;
   if (carstairsReasons) carstairsReasons.hidden = true;
 }
 
@@ -1704,6 +1706,27 @@ function deriveFallbackWastebasketReasons(payload) {
   return reasons.length ? reasons : ["The property still lacks the clarity, scale, and emotional authority required for a major photoplay."];
 }
 
+function normalizeWastebasketAnalysis(payload) {
+  const raw = payload && (payload.wastebasketAnalysis || payload.wastebasketExplanation || payload.whyItFell);
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 2);
+  }
+  if (raw) {
+    const text = stripHtmlTags(raw);
+    const paragraphs = text.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
+    return (paragraphs.length ? paragraphs : [text]).slice(0, 2);
+  }
+
+  const reasons = deriveFallbackWastebasketReasons(payload);
+  const memoText = stripHtmlTags((payload && payload.memoBody) || "");
+  const subject = memoText ? "In the memorandum, Carstairs is objecting to the treatment's screen value rather than merely its premise." : "Carstairs' rejection turns on the missing screen value in the packet.";
+
+  return [
+    `${subject} The central lesson is to look for what the audience can see and feel at once: a saleable title, a visible moral wound, and a sequence large enough to make the silver sheet feel necessary.`,
+    `For a future pass, treat these notes as production questions, not insults. ${reasons.join(" ")} The repair should name the exact image, choice, sacrifice, or public reversal that turns the story from promising material into a photoplay Carstairs can spend money on.`
+  ];
+}
+
 function normalizeRewriteAnswers(payload) {
   const answers = payload && payload.rewriteAnswers;
   if (!answers) return {};
@@ -1921,6 +1944,13 @@ const carstairsRewrite = document.querySelector("#carstairs-rewrite");
 const carstairsQuestions = document.querySelector("#carstairs-questions");
 const carstairsTimer = document.querySelector("#carstairs-timer");
 const resubmitCarstairs = document.querySelector("#resubmit-carstairs");
+const carstairsAppeal = document.querySelector("#carstairs-appeal");
+const openCarstairsAppeal = document.querySelector("#open-carstairs-appeal");
+const carstairsAppealForm = document.querySelector("#carstairs-appeal-form");
+const carstairsAppealOverlooked = document.querySelector("#carstairs-appeal-overlooked");
+const carstairsAppealValue = document.querySelector("#carstairs-appeal-value");
+const submitCarstairsAppeal = document.querySelector("#submit-carstairs-appeal");
+const carstairsAppealStatus = document.querySelector("#carstairs-appeal-status");
 let carstairsRewriteUsed = false;
 let carstairsInterval;
 let activeCarstairsProperty = null;
@@ -2002,18 +2032,57 @@ function renderCarstairsPacket(property) {
 function renderCarstairsReasonsBlock(payload) {
   if (!carstairsReasons || !carstairsReasonsList) return;
   const reasons = normalizeWastebasketReasons(payload);
-  if ((payload && payload.verdict) !== "wastebasket" || !reasons.length) {
+  const analysis = normalizeWastebasketAnalysis(payload);
+  if ((payload && payload.verdict) !== "wastebasket" || (!reasons.length && !analysis.length)) {
     carstairsReasons.hidden = true;
     carstairsReasonsList.innerHTML = "";
     return;
   }
 
   carstairsReasonsList.innerHTML = `
-    <ul>
-      ${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
-    </ul>
+    <div class="carstairs-reasons__analysis">
+      ${analysis.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
+    </div>
+    ${reasons.length ? `
+      <ul>
+        ${reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
+      </ul>
+    ` : ""}
   `;
   carstairsReasons.hidden = false;
+}
+
+function hasCarstairsAppealBeenUsed(payload) {
+  const propertyCount = Number(activeCarstairsProperty && activeCarstairsProperty.carstairsAppealCount || 0) || 0;
+  const payloadCount = Number(payload && (payload.appealCount || payload.carstairsAppealCount) || 0) || 0;
+  const hasAppealNotes = Boolean(payload && payload.appealNotes);
+  return propertyCount > 0 || payloadCount > 0 || hasAppealNotes;
+}
+
+function renderCarstairsAppealBlock(payload) {
+  if (!carstairsAppeal) return;
+  const canAppeal = payload && payload.verdict === "wastebasket" && !hasCarstairsAppealBeenUsed(payload);
+
+  if (!canAppeal) {
+    carstairsAppeal.hidden = true;
+    if (carstairsAppealForm) carstairsAppealForm.hidden = true;
+    if (carstairsAppealStatus) carstairsAppealStatus.textContent = "";
+    return;
+  }
+
+  if (carstairsAppealOverlooked) carstairsAppealOverlooked.value = "";
+  if (carstairsAppealValue) carstairsAppealValue.value = "";
+  if (carstairsAppealStatus) carstairsAppealStatus.textContent = "One reconsideration may be requested for this ruling.";
+  if (openCarstairsAppeal) {
+    openCarstairsAppeal.hidden = false;
+    openCarstairsAppeal.disabled = false;
+  }
+  if (carstairsAppealForm) carstairsAppealForm.hidden = true;
+  if (submitCarstairsAppeal) {
+    submitCarstairsAppeal.disabled = false;
+    submitCarstairsAppeal.textContent = "Submit Reconsideration";
+  }
+  carstairsAppeal.hidden = false;
 }
 
 function renderCarstairsRewriteForm(payload, forceOpen = false) {
@@ -2057,10 +2126,12 @@ function renderSavedCarstairsMemo(payload) {
   if (payload.verdict) {
     showCarstairsVerdict(payload.verdict, payload.quote || "");
     renderCarstairsReasonsBlock(payload);
+    renderCarstairsAppealBlock(payload);
     renderCarstairsRewriteForm(payload, payload.verdict === "rewrite");
   } else {
     if (carstairsVerdict) carstairsVerdict.hidden = true;
     if (carstairsReasons) carstairsReasons.hidden = true;
+    if (carstairsAppeal) carstairsAppeal.hidden = true;
     if (carstairsRewrite) carstairsRewrite.hidden = true;
   }
   if (evaluateTreatment) {
@@ -2270,6 +2341,67 @@ if (resubmitCarstairs) {
       carstairsMemoTitle.textContent = "There is no executive rewrite to return.";
       carstairsOpinion.textContent = "Carstairs has not ordered a return on this packet. Select a rewrite file if you mean to send material back downstairs.";
       carstairsMemo.hidden = false;
+    }
+  });
+}
+
+if (openCarstairsAppeal) {
+  openCarstairsAppeal.addEventListener("click", () => {
+    if (carstairsAppealForm) carstairsAppealForm.hidden = false;
+    openCarstairsAppeal.hidden = true;
+    if (carstairsAppealStatus) carstairsAppealStatus.textContent = "File the appeal in plain terms. Carstairs will only reconsider once.";
+    carstairsAppealForm?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+if (submitCarstairsAppeal) {
+  submitCarstairsAppeal.addEventListener("click", async () => {
+    const key = getCarstairsProperty();
+    const overlooked = String(carstairsAppealOverlooked && carstairsAppealOverlooked.value || "").trim();
+    const productionValue = String(carstairsAppealValue && carstairsAppealValue.value || "").trim();
+
+    if (!/^SPC-/i.test(key) || !activeCarstairsPayload || activeCarstairsPayload.verdict !== "wastebasket") {
+      if (carstairsAppealStatus) carstairsAppealStatus.textContent = "There is no Wastebasket ruling available for reconsideration.";
+      return;
+    }
+
+    if (!overlooked || !productionValue) {
+      if (carstairsAppealStatus) carstairsAppealStatus.textContent = "Both appeal notes are required before Carstairs will reconsider the ruling.";
+      return;
+    }
+
+    submitCarstairsAppeal.disabled = true;
+    submitCarstairsAppeal.textContent = "Requesting Reconsideration";
+    if (carstairsAppealStatus) carstairsAppealStatus.textContent = "The appeal has gone back across the executive desk.";
+    if (carstairsMemoTitle && carstairsOpinion) {
+      carstairsMemoTitle.textContent = "Carstairs is considering the appeal.";
+      carstairsOpinion.textContent = "The rejected packet has returned with a formal appeal. He is weighing the claimed production value against the first ruling.";
+      carstairsMemo.hidden = false;
+    }
+
+    try {
+      const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key, {
+        appeal: true,
+        appealNotes: {
+          overlooked,
+          productionValue
+        }
+      }));
+      if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs appeal response was not OK.");
+      if (activeCarstairsProperty) {
+        activeCarstairsProperty.carstairsJson = JSON.stringify(payload);
+        activeCarstairsProperty.carstairsAppealCount = payload.appealCount || 1;
+      }
+      renderSavedCarstairsMemo(payload);
+      if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (error) {
+      if (carstairsAppealStatus) {
+        carstairsAppealStatus.textContent = error && error.message
+          ? `The reconsideration could not be filed. ${error.message}`
+          : "The reconsideration could not be filed. Try once more.";
+      }
+      submitCarstairsAppeal.disabled = false;
+      submitCarstairsAppeal.textContent = "Submit Reconsideration";
     }
   });
 }
