@@ -196,7 +196,7 @@ function propertyHref(property) {
   const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
   const hasExecutiveRewrite = /executive rewrite/i.test(status) || /rewrite/i.test(carstairsVerdict);
   if (hasExecutiveRewrite) {
-    return property.writerRoomUrl || `writers-room.html?property=${encodeURIComponent(key)}`;
+    return `carstairs-office.html?property=${encodeURIComponent(key)}`;
   }
   if (hasFinalCarstairs) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
@@ -252,7 +252,7 @@ function isWritersRoomSelectorProperty(property) {
 }
 
 function canOpenInWritersRoom(property) {
-  return isWritersRoomSelectorProperty(property) || isExecutiveRewriteProperty(property);
+  return isWritersRoomSelectorProperty(property);
 }
 
 function isTreatmentRoomProperty(property) {
@@ -660,8 +660,6 @@ let activeConferenceDecision = "treatments";
 let activeConferenceProperty = null;
 let activeConferenceWriterKeys = ["marchmont", "fairchild", "carrington"];
 let activeConferencePayload = null;
-let activeWritersRoomMode = "conference";
-let activeExecutiveRewritePacket = null;
 
 const photoplaywrightRoster = {
   marchmont: {
@@ -1159,7 +1157,7 @@ function startReconferenceClock() {
   clearInterval(reconferenceInterval);
   let remaining = 36;
   reconferenceFeedback.hidden = true;
-  renderReconferenceQuestions(activeWritersRoomMode === "executive-rewrite" ? activeExecutiveRewritePacket : activeConferencePayload);
+  renderReconferenceQuestions(activeConferencePayload);
   if (reconferenceCount >= 2) {
     if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "Final Moral Repair ";
     if (labelRomance) labelRomance.childNodes[0].textContent = "Final Human Tie or Romance Repair ";
@@ -1185,9 +1183,7 @@ function startReconferenceClock() {
   }
   if (updatedConference) {
     updatedConference.disabled = true;
-    updatedConference.textContent = activeWritersRoomMode === "executive-rewrite"
-      ? "Preparing the Return Upstairs"
-      : "Awaiting Photoplaywright Notes";
+    updatedConference.textContent = "Awaiting Photoplaywright Notes";
   }
   reconferenceTimer.textContent = "36:00";
   reconferenceInterval = window.setInterval(() => {
@@ -1199,9 +1195,7 @@ function startReconferenceClock() {
       reconferenceFeedback.hidden = false;
       if (updatedConference) {
         updatedConference.disabled = false;
-        updatedConference.textContent = activeWritersRoomMode === "executive-rewrite"
-          ? "Send Back Upstairs to Carstairs"
-          : "Convene Updated Conference";
+        updatedConference.textContent = "Convene Updated Conference";
       }
     }
   }, 60000);
@@ -1265,64 +1259,6 @@ function showCarstairsDeskMessage(message, detail) {
   if (carstairsReasons) carstairsReasons.hidden = true;
 }
 
-function setWritersRoomExecutiveMode(property, packet) {
-  activeWritersRoomMode = "executive-rewrite";
-  activeExecutiveRewritePacket = packet || parseSavedCarstairs(property) || {};
-
-  if (conferenceHeading) {
-    conferenceHeading.textContent = "Executive rewrite ordered by Carstairs.";
-  }
-  if (readerVerdict) {
-    readerVerdict.dataset.hasSelection = "false";
-    readerVerdict.innerHTML = `
-      <p class="eyebrow">Executive Return</p>
-      <h3>Carstairs has sent this property back downstairs.</h3>
-      <p>Answer the executive questions below, revise the packet plainly, and send the property back upstairs when the desk is ready.</p>
-    `;
-  }
-  if (sendLetter) {
-    sendLetter.disabled = true;
-    sendLetter.textContent = "Executive Rewrite on File";
-  }
-  if (writerCallboard) {
-    writerCallboard.hidden = true;
-    writerCallboard.innerHTML = "";
-  }
-  if (finalEvaluation) {
-    finalEvaluation.hidden = true;
-  }
-  if (reconferenceWorkshop) {
-    reconferenceWorkshop.hidden = false;
-  }
-  const workshopEyebrow = reconferenceWorkshop?.querySelector(".eyebrow");
-  const workshopTitle = reconferenceWorkshop?.querySelector("h2");
-  const workshopCopy = reconferenceWorkshop?.querySelector("p");
-  if (workshopEyebrow) workshopEyebrow.textContent = "Executive Rewrite Order";
-  if (workshopTitle) workshopTitle.textContent = "Repair the packet for Carstairs and send it back upstairs.";
-  if (workshopCopy) {
-    workshopCopy.textContent = "Carstairs has already marked the weak points. Answer his questions in the writing room, then return the revised packet to the top floor.";
-  }
-  if (reconferenceFeedback) {
-    reconferenceFeedback.hidden = false;
-    reconferenceFeedback.innerHTML = `
-      <div>
-        <h3>${escapeHtml(activeExecutiveRewritePacket.memoTitle || "From the Desk of Carstairs")}</h3>
-        <p>${escapeHtml(stripHtmlTags(activeExecutiveRewritePacket.memoBody || "The executive memorandum is on file for this return."))}</p>
-      </div>
-    `;
-  }
-  if (updatedConference) {
-    updatedConference.disabled = false;
-    updatedConference.textContent = "Send Back Upstairs to Carstairs";
-  }
-  renderReconferenceQuestions(activeExecutiveRewritePacket);
-}
-
-function clearWritersRoomExecutiveMode() {
-  activeWritersRoomMode = "conference";
-  activeExecutiveRewritePacket = null;
-}
-
 function initWritersRoomSelector() {
   const tiles = document.querySelector("#writers-room-property-tiles");
   const empty = document.querySelector("#writers-room-property-empty");
@@ -1360,11 +1296,6 @@ function initWritersRoomSelector() {
         return;
       }
 
-      if (isExecutiveRewriteProperty(current)) {
-        setWritersRoomExecutiveMode(current, parseSavedCarstairs(current));
-      } else {
-        clearWritersRoomExecutiveMode();
-      }
     })
     .catch(() => {
       empty.hidden = false;
@@ -1531,48 +1462,6 @@ if (finalAction && reconferenceWorkshop) {
 
 if (updatedConference) {
   updatedConference.addEventListener("click", async () => {
-    if (activeWritersRoomMode === "executive-rewrite") {
-      if (!/^SPC-/i.test(activePropertyKey) || !activeExecutiveRewritePacket) {
-        if (readerVerdict) {
-          readerVerdict.innerHTML = `
-            <p class="eyebrow">Executive Return</p>
-            <h3>No executive rewrite packet is presently on this desk.</h3>
-            <p>Select a current executive rewrite property before sending anything back upstairs.</p>
-          `;
-        }
-        return;
-      }
-
-      updatedConference.disabled = true;
-      updatedConference.textContent = "Sending Back Upstairs";
-
-      const questions = normalizeCarstairsQuestions(activeExecutiveRewritePacket).map((question) => ({
-        id: question.id,
-        label: question.label,
-        prompt: question.prompt
-      }));
-
-      try {
-        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(activePropertyKey, {
-          questions,
-          answers: collectReconferenceAnswers()
-        }));
-        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
-        window.location.href = `carstairs-office.html?property=${encodeURIComponent(activePropertyKey)}`;
-      } catch (error) {
-        if (readerVerdict) {
-          readerVerdict.innerHTML = `
-            <p class="eyebrow">Executive Return</p>
-            <h3>The return packet did not file upstairs.</h3>
-            <p>${escapeHtml(error && error.message ? error.message : "Carstairs did not return a usable memorandum on this pass.")}</p>
-          `;
-        }
-        updatedConference.disabled = false;
-        updatedConference.textContent = "Send Back Upstairs to Carstairs";
-      }
-      return;
-    }
-
     if (reconferenceCount >= 2) {
       showExecutiveVerdict("wastebasket");
       return;
@@ -2065,7 +1954,7 @@ function showCarstairsVerdict(kind, quote) {
   if (!carstairsVerdict || !carstairsStamp || !carstairsQuote || !carstairsAction) return;
   const labels = {
     greenlight: ["Greenlight", "final-stamp final-stamp--treatments", "Return to the Scenario Desk", "scenario-desk.html"],
-    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Go Back to Writers' Room", activeCarstairsProperty ? `writers-room.html?property=${encodeURIComponent(activeCarstairsProperty.propertyId || getCarstairsProperty())}` : "writers-room.html"],
+    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Review Executive Questions", "#carstairs-rewrite"],
     wastebasket: ["Wastebasket", "final-stamp final-stamp--wastebasket", "Return to the Scenario Desk", "scenario-desk.html"]
   };
   const [stamp, className, action, href] = labels[kind] || labels.greenlight;
@@ -2141,11 +2030,14 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
   }
 
   carstairsQuestions.innerHTML = questions.map((question) => `
-    <article class="executive-question">
+    <label class="executive-question">
       <h3>${escapeHtml(question.label)}</h3>
       <p>${escapeHtml(question.prompt)}</p>
-      <p class="executive-answer">${escapeHtml(answers[question.id] || "To be answered in the Writers' Room.")}</p>
-    </article>
+      <textarea
+        data-carstairs-question-id="${escapeHtml(question.id)}"
+        placeholder="${escapeHtml(question.placeholder)}"
+      >${escapeHtml(answers[question.id] || "")}</textarea>
+    </label>
   `).join("");
 
   if (forceOpen || Object.values(answers).some(Boolean)) {
@@ -2153,7 +2045,7 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
   }
   if (resubmitCarstairs) {
     resubmitCarstairs.disabled = false;
-    resubmitCarstairs.textContent = "Go Back to Writers' Room";
+    resubmitCarstairs.textContent = "Send Back Upstairs";
   }
 }
 
@@ -2314,11 +2206,64 @@ if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
   });
 }
 
+if (carstairsAction && carstairsRewrite) {
+  carstairsAction.addEventListener("click", (event) => {
+    if (carstairsAction.getAttribute("href") !== "#carstairs-rewrite") return;
+    event.preventDefault();
+    if (activeCarstairsPayload) {
+      renderCarstairsRewriteForm(activeCarstairsPayload, true);
+    }
+    carstairsRewrite.hidden = false;
+    startCarstairsClock();
+    carstairsRewrite.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 if (resubmitCarstairs) {
   resubmitCarstairs.addEventListener("click", async () => {
     const key = getCarstairsProperty();
     if (/^SPC-/i.test(key) && activeCarstairsPayload && activeCarstairsPayload.verdict === "rewrite") {
-      window.location.href = `writers-room.html?property=${encodeURIComponent(key)}`;
+      const questionNodes = Array.from(document.querySelectorAll("[data-carstairs-question-id]"));
+      const rewriteNotes = {
+        questions: normalizeCarstairsQuestions(activeCarstairsPayload).map((question) => ({
+          id: question.id,
+          label: question.label,
+          prompt: question.prompt
+        })),
+        answers: questionNodes.map((node) => ({
+          id: node.dataset.carstairsQuestionId || "",
+          answer: node.value || ""
+        }))
+      };
+
+      resubmitCarstairs.disabled = true;
+      resubmitCarstairs.textContent = "Sending Back Upstairs";
+      if (carstairsMemoTitle && carstairsOpinion) {
+        carstairsMemoTitle.textContent = "Carstairs is reading the returned treatment.";
+        carstairsOpinion.textContent = "The revised packet has gone back across his desk. The executive office is weighing the repairs against the first memorandum.";
+        carstairsMemo.hidden = false;
+      }
+
+      try {
+        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key, rewriteNotes));
+        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
+        if (activeCarstairsProperty) {
+          activeCarstairsProperty.carstairsJson = JSON.stringify(payload);
+        }
+        renderSavedCarstairsMemo(payload);
+        if (carstairsRewrite) carstairsRewrite.hidden = true;
+        if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (error) {
+        if (carstairsMemoTitle && carstairsOpinion) {
+          carstairsMemoTitle.textContent = "The memorandum was returned in disorder.";
+          carstairsOpinion.textContent = error && error.message
+            ? `Carstairs did not file a proper second memorandum. ${error.message}`
+            : "Carstairs did not file a proper second memorandum. The revision remains on the desk.";
+          carstairsMemo.hidden = false;
+        }
+        resubmitCarstairs.disabled = false;
+        resubmitCarstairs.textContent = "Send Back Upstairs";
+      }
       return;
     }
 
