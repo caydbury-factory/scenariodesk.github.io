@@ -196,7 +196,7 @@ function propertyHref(property) {
   const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
   const hasExecutiveRewrite = /executive rewrite/i.test(status) || /rewrite/i.test(carstairsVerdict);
   if (hasExecutiveRewrite) {
-    return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
+    return property.writerRoomUrl || `writers-room.html?property=${encodeURIComponent(key)}`;
   }
   if (hasFinalCarstairs) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
@@ -224,6 +224,112 @@ function parseSavedCarstairs(property) {
   } catch (error) {
     return null;
   }
+}
+
+function lowerText(value) {
+  return String(value || "").toLowerCase();
+}
+
+function isConferenceRepairProperty(property) {
+  const status = lowerText(property && property.status);
+  const verdict = lowerText(property && property.conferenceVerdict);
+  const savedConference = parseSavedConference(property) || {};
+  const decision = lowerText(savedConference.decision || savedConference.finalDecision);
+  return /reconference/.test(status) || /reconference/.test(verdict) || /reconference/.test(decision);
+}
+
+function isExecutiveRewriteProperty(property) {
+  const status = lowerText(property && property.status);
+  const verdict = lowerText(property && property.carstairsVerdict);
+  const savedCarstairs = parseSavedCarstairs(property) || {};
+  const packetVerdict = lowerText(savedCarstairs.verdict || savedCarstairs.statusLabel);
+  return /executive rewrite/.test(status) || /rewrite/.test(verdict) || /rewrite/.test(packetVerdict);
+}
+
+function isWritersRoomSelectorProperty(property) {
+  const status = lowerText(property && property.status);
+  return /needs reader|conference ready|needs conference/.test(status) || isConferenceRepairProperty(property);
+}
+
+function canOpenInWritersRoom(property) {
+  return isWritersRoomSelectorProperty(property) || isExecutiveRewriteProperty(property);
+}
+
+function isTreatmentRoomProperty(property) {
+  const status = lowerText(property && property.status);
+  const treatmentStatus = lowerText(property && property.treatmentStatus);
+  if (isExecutiveRewriteProperty(property)) return false;
+  if (/greenlit|wastebasket/.test(status)) return false;
+  return /treatment ready|treatment applied/.test(status) || /treatment ready|treatment applied/.test(treatmentStatus);
+}
+
+function isCarstairsRoomProperty(property) {
+  const status = lowerText(property && property.status);
+  const treatmentStatus = lowerText(property && property.treatmentStatus);
+  const verdict = lowerText(property && property.carstairsVerdict);
+  return /treatment applied|executive rewrite|greenlit|wastebasket/.test(status)
+    || /treatment applied/.test(treatmentStatus)
+    || /rewrite|greenlight|wastebasket/.test(verdict)
+    || Boolean(parseSavedCarstairs(property));
+}
+
+function roomPropertyFilter(room, property) {
+  if (room === "writers") return isWritersRoomSelectorProperty(property);
+  if (room === "treatment") return isTreatmentRoomProperty(property);
+  if (room === "carstairs") return isCarstairsRoomProperty(property);
+  return false;
+}
+
+function roomPropertyEligibleForDirectLoad(room, property) {
+  if (room === "writers") return canOpenInWritersRoom(property);
+  if (room === "treatment") return isTreatmentRoomProperty(property);
+  if (room === "carstairs") return isCarstairsRoomProperty(property);
+  return false;
+}
+
+function renderRoomPropertySelector(room, options) {
+  const {
+    properties = [],
+    currentPropertyId = "",
+    currentIsValid = true,
+    tilesSelector,
+    emptySelector,
+    pageHref
+  } = options || {};
+
+  const tiles = document.querySelector(tilesSelector);
+  const empty = document.querySelector(emptySelector);
+  if (!tiles || !empty) return;
+
+  const eligible = properties.filter((property) => roomPropertyFilter(room, property));
+
+  if (!eligible.length) {
+    tiles.innerHTML = "";
+    empty.hidden = false;
+    empty.textContent = "No properties are currently waiting on this desk.";
+    return;
+  }
+
+  tiles.innerHTML = eligible.map((property) => `
+    <button
+      type="button"
+      class="room-property-tile ${String(property.propertyId || "") === String(currentPropertyId || "") ? "is-active" : ""}"
+      data-room-property-id="${escapeHtml(property.propertyId || "")}">
+      ${escapeHtml(property.title || "Untitled Property")}
+    </button>
+  `).join("");
+
+  tiles.querySelectorAll("[data-room-property-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const propertyId = button.dataset.roomPropertyId || "";
+      window.location.href = `${pageHref}?property=${encodeURIComponent(propertyId)}`;
+    });
+  });
+
+  empty.hidden = false;
+  empty.textContent = currentPropertyId && !currentIsValid
+    ? "That property is not presently on this desk. Select another current file."
+    : "Select a current property from the desk.";
 }
 
 function renderScenarioDesk(properties) {
@@ -554,6 +660,8 @@ let activeConferenceDecision = "treatments";
 let activeConferenceProperty = null;
 let activeConferenceWriterKeys = ["marchmont", "fairchild", "carrington"];
 let activeConferencePayload = null;
+let activeWritersRoomMode = "conference";
+let activeExecutiveRewritePacket = null;
 
 const photoplaywrightRoster = {
   marchmont: {
@@ -947,6 +1055,10 @@ if (sendLetter && !activePropertyKey) {
   sendLetter.textContent = "Awaiting Property Packet";
 }
 
+if (propertyTitle) {
+  initWritersRoomSelector();
+}
+
 function renderWriterCallboard() {
   if (!writerCallboard) return;
   if (!Array.isArray(activePhotoplaywrightVerdicts) || !activePhotoplaywrightVerdicts.length) {
@@ -1034,7 +1146,6 @@ function showExecutiveVerdict(kind) {
   finalAction.textContent = verdict.action;
   finalAction.href = actionHref;
   finalEvaluation.hidden = false;
-  nextWriter.hidden = true;
   if (conferenceHeading) {
     conferenceHeading.textContent = kind === "wastebasket"
       ? "The conference has exhausted the material."
@@ -1048,7 +1159,7 @@ function startReconferenceClock() {
   clearInterval(reconferenceInterval);
   let remaining = 36;
   reconferenceFeedback.hidden = true;
-  renderReconferenceQuestions(activeConferencePayload);
+  renderReconferenceQuestions(activeWritersRoomMode === "executive-rewrite" ? activeExecutiveRewritePacket : activeConferencePayload);
   if (reconferenceCount >= 2) {
     if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "Final Moral Repair ";
     if (labelRomance) labelRomance.childNodes[0].textContent = "Final Human Tie or Romance Repair ";
@@ -1074,7 +1185,9 @@ function startReconferenceClock() {
   }
   if (updatedConference) {
     updatedConference.disabled = true;
-    updatedConference.textContent = "Awaiting Photoplaywright Notes";
+    updatedConference.textContent = activeWritersRoomMode === "executive-rewrite"
+      ? "Preparing the Return Upstairs"
+      : "Awaiting Photoplaywright Notes";
   }
   reconferenceTimer.textContent = "36:00";
   reconferenceInterval = window.setInterval(() => {
@@ -1086,14 +1199,278 @@ function startReconferenceClock() {
       reconferenceFeedback.hidden = false;
       if (updatedConference) {
         updatedConference.disabled = false;
-        updatedConference.textContent = "Convene Updated Conference";
+        updatedConference.textContent = activeWritersRoomMode === "executive-rewrite"
+          ? "Send Back Upstairs to Carstairs"
+          : "Convene Updated Conference";
       }
     }
   }, 60000);
 }
 
+function showWritersRoomDeskMessage(message, detail) {
+  if (propertyTitle) propertyTitle.textContent = message;
+  const kicker = document.querySelector("#property-kicker");
+  if (kicker) kicker.textContent = "Property Under Consideration";
+  const logline = document.querySelector("#property-logline");
+  if (logline) logline.textContent = detail || "Choose a property currently on the Writers' Room desk.";
+  const notes = document.querySelector("#property-notes");
+  if (notes) notes.innerHTML = "<strong>Submitter's Notes:</strong> No notes have been filed yet.";
+  const readerName = document.querySelector("#reader-name");
+  if (readerName) readerName.textContent = "Scenario reader assignment pending";
+  const readerSynopsis = document.querySelector("#reader-synopsis");
+  if (readerSynopsis) readerSynopsis.textContent = "The scenario reader is preparing the file.";
+  const sequenceList = document.querySelector("#sequence-list");
+  if (sequenceList) {
+    sequenceList.innerHTML = `
+      <div class="analysis-card">
+        <h3>Sequence 01</h3>
+        <p>Key dramatic sequences will appear here after the scenario reader has examined the material.</p>
+      </div>
+    `;
+  }
+  const archetypeList = document.querySelector("#archetype-list");
+  if (archetypeList) {
+    archetypeList.innerHTML = `
+      <div class="analysis-card">
+        <h3>Character 01</h3>
+        <p>Character archetypes will appear here after the scenario reader has examined the material.</p>
+      </div>
+    `;
+  }
+  if (sendLetter) {
+    sendLetter.disabled = true;
+    sendLetter.textContent = "Awaiting Property Packet";
+  }
+  if (writerCallboard) {
+    writerCallboard.hidden = true;
+    writerCallboard.innerHTML = "";
+  }
+  if (finalEvaluation) finalEvaluation.hidden = true;
+  if (reconferenceWorkshop) reconferenceWorkshop.hidden = true;
+}
+
+function showTreatmentDeskMessage(message, detail) {
+  if (treatmentTitle) treatmentTitle.textContent = message;
+  if (treatmentLogline) treatmentLogline.textContent = detail || "Choose a property currently on the Treatment desk.";
+  if (officialTreatment) officialTreatment.hidden = true;
+}
+
+function showCarstairsDeskMessage(message, detail) {
+  if (carstairsTitle) carstairsTitle.textContent = message;
+  if (carstairsLogline) carstairsLogline.textContent = detail || "Choose a property currently on Carstairs' desk for executive review.";
+  if (carstairsDossier) carstairsDossier.hidden = true;
+  if (carstairsMemo) carstairsMemo.hidden = true;
+  if (carstairsVerdict) carstairsVerdict.hidden = true;
+  if (carstairsRewrite) carstairsRewrite.hidden = true;
+  if (carstairsReasons) carstairsReasons.hidden = true;
+}
+
+function setWritersRoomExecutiveMode(property, packet) {
+  activeWritersRoomMode = "executive-rewrite";
+  activeExecutiveRewritePacket = packet || parseSavedCarstairs(property) || {};
+
+  if (conferenceHeading) {
+    conferenceHeading.textContent = "Executive rewrite ordered by Carstairs.";
+  }
+  if (readerVerdict) {
+    readerVerdict.dataset.hasSelection = "false";
+    readerVerdict.innerHTML = `
+      <p class="eyebrow">Executive Return</p>
+      <h3>Carstairs has sent this property back downstairs.</h3>
+      <p>Answer the executive questions below, revise the packet plainly, and send the property back upstairs when the desk is ready.</p>
+    `;
+  }
+  if (sendLetter) {
+    sendLetter.disabled = true;
+    sendLetter.textContent = "Executive Rewrite on File";
+  }
+  if (writerCallboard) {
+    writerCallboard.hidden = true;
+    writerCallboard.innerHTML = "";
+  }
+  if (finalEvaluation) {
+    finalEvaluation.hidden = true;
+  }
+  if (reconferenceWorkshop) {
+    reconferenceWorkshop.hidden = false;
+  }
+  const workshopEyebrow = reconferenceWorkshop?.querySelector(".eyebrow");
+  const workshopTitle = reconferenceWorkshop?.querySelector("h2");
+  const workshopCopy = reconferenceWorkshop?.querySelector("p");
+  if (workshopEyebrow) workshopEyebrow.textContent = "Executive Rewrite Order";
+  if (workshopTitle) workshopTitle.textContent = "Repair the packet for Carstairs and send it back upstairs.";
+  if (workshopCopy) {
+    workshopCopy.textContent = "Carstairs has already marked the weak points. Answer his questions in the writing room, then return the revised packet to the top floor.";
+  }
+  if (reconferenceFeedback) {
+    reconferenceFeedback.hidden = false;
+    reconferenceFeedback.innerHTML = `
+      <div>
+        <h3>${escapeHtml(activeExecutiveRewritePacket.memoTitle || "From the Desk of Carstairs")}</h3>
+        <p>${escapeHtml(stripHtmlTags(activeExecutiveRewritePacket.memoBody || "The executive memorandum is on file for this return."))}</p>
+      </div>
+    `;
+  }
+  if (updatedConference) {
+    updatedConference.disabled = false;
+    updatedConference.textContent = "Send Back Upstairs to Carstairs";
+  }
+  renderReconferenceQuestions(activeExecutiveRewritePacket);
+}
+
+function clearWritersRoomExecutiveMode() {
+  activeWritersRoomMode = "conference";
+  activeExecutiveRewritePacket = null;
+}
+
+function initWritersRoomSelector() {
+  const tiles = document.querySelector("#writers-room-property-tiles");
+  const empty = document.querySelector("#writers-room-property-empty");
+  if (!tiles || !empty) return;
+
+  loadLedgerProperties()
+    .then((payload) => {
+      if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+      const properties = payload.properties || [];
+      const current = properties.find((item) =>
+        String(item.propertyId || "").toLowerCase() === String(activePropertyKey || "").toLowerCase()
+      );
+      const currentIsValid = !activePropertyKey || roomPropertyEligibleForDirectLoad("writers", current);
+      renderRoomPropertySelector("writers", {
+        properties,
+        currentPropertyId: activePropertyKey,
+        currentIsValid,
+        tilesSelector: "#writers-room-property-tiles",
+        emptySelector: "#writers-room-property-empty",
+        pageHref: "writers-room.html"
+      });
+
+      if (!activePropertyKey) {
+        showWritersRoomDeskMessage("Select Property", "Choose a property currently on the Writers' Room desk.");
+        return;
+      }
+
+      if (!current) {
+        showWritersRoomDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
+        return;
+      }
+
+      if (!roomPropertyEligibleForDirectLoad("writers", current)) {
+        showWritersRoomDeskMessage("Select Property", "This property is not presently on the Writers' Room desk. Select another current file.");
+        return;
+      }
+
+      if (isExecutiveRewriteProperty(current)) {
+        setWritersRoomExecutiveMode(current, parseSavedCarstairs(current));
+      } else {
+        clearWritersRoomExecutiveMode();
+      }
+    })
+    .catch(() => {
+      empty.hidden = false;
+      empty.textContent = "The Writers' Room could not draw the desk ledger just now.";
+    });
+}
+
+function initTreatmentRoomSelector() {
+  const tiles = document.querySelector("#treatment-room-property-tiles");
+  const empty = document.querySelector("#treatment-room-property-empty");
+  if (!tiles || !empty) return;
+
+  const currentKey = getTreatmentProperty();
+
+  loadLedgerProperties()
+    .then((payload) => {
+      if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+      const properties = payload.properties || [];
+      const current = properties.find((item) =>
+        String(item.propertyId || "").toLowerCase() === String(currentKey || "").toLowerCase()
+      );
+      const currentIsValid = !currentKey || roomPropertyEligibleForDirectLoad("treatment", current);
+      renderRoomPropertySelector("treatment", {
+        properties,
+        currentPropertyId: currentKey,
+        currentIsValid,
+        tilesSelector: "#treatment-room-property-tiles",
+        emptySelector: "#treatment-room-property-empty",
+        pageHref: "treatment-room.html"
+      });
+
+      if (!currentKey) {
+        showTreatmentDeskMessage("Select Property", "Choose a property currently on the Treatment desk.");
+        if (prepareTreatment) {
+          prepareTreatment.disabled = true;
+          prepareTreatment.textContent = "Awaiting Treatment Packet";
+        }
+        return;
+      }
+
+      if (!current) {
+        showTreatmentDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
+        return;
+      }
+
+      if (!roomPropertyEligibleForDirectLoad("treatment", current)) {
+        showTreatmentDeskMessage("Select Property", "This property is not presently on the Treatment desk. Select another current file.");
+        if (prepareTreatment) {
+          prepareTreatment.disabled = true;
+          prepareTreatment.textContent = "Awaiting Treatment Packet";
+        }
+      }
+    })
+    .catch(() => {
+      empty.hidden = false;
+      empty.textContent = "The Treatment desk could not draw the ledger just now.";
+    });
+}
+
+function initCarstairsSelector() {
+  const tiles = document.querySelector("#carstairs-property-tiles");
+  const empty = document.querySelector("#carstairs-property-empty");
+  if (!tiles || !empty) return;
+
+  const currentKey = getCarstairsProperty();
+
+  loadLedgerProperties()
+    .then((payload) => {
+      if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+      const properties = payload.properties || [];
+      const current = properties.find((item) =>
+        String(item.propertyId || "").toLowerCase() === String(currentKey || "").toLowerCase()
+      );
+      const currentIsValid = !currentKey || roomPropertyEligibleForDirectLoad("carstairs", current);
+      renderRoomPropertySelector("carstairs", {
+        properties,
+        currentPropertyId: currentKey,
+        currentIsValid,
+        tilesSelector: "#carstairs-property-tiles",
+        emptySelector: "#carstairs-property-empty",
+        pageHref: "carstairs-office.html"
+      });
+
+      if (!currentKey) {
+        showCarstairsDeskMessage("Select Property for Evaluation", "Choose a property currently on Carstairs' desk for executive review.");
+        return;
+      }
+
+      if (!current) {
+        showCarstairsDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
+        return;
+      }
+
+      if (!roomPropertyEligibleForDirectLoad("carstairs", current)) {
+        showCarstairsDeskMessage("Select Property for Evaluation", "This property is not presently on Carstairs' desk. Select another current file.");
+      }
+    })
+    .catch(() => {
+      empty.hidden = false;
+      empty.textContent = "The executive ledger could not be drawn just now.";
+    });
+}
+
 if (sendLetter && readerRoster && readerVerdict) {
   sendLetter.addEventListener("click", async () => {
+    clearWritersRoomExecutiveMode();
     readerRoster.classList.remove("is-locked");
     if (writerCallboard) {
       writerCallboard.hidden = true;
@@ -1154,6 +1531,48 @@ if (finalAction && reconferenceWorkshop) {
 
 if (updatedConference) {
   updatedConference.addEventListener("click", async () => {
+    if (activeWritersRoomMode === "executive-rewrite") {
+      if (!/^SPC-/i.test(activePropertyKey) || !activeExecutiveRewritePacket) {
+        if (readerVerdict) {
+          readerVerdict.innerHTML = `
+            <p class="eyebrow">Executive Return</p>
+            <h3>No executive rewrite packet is presently on this desk.</h3>
+            <p>Select a current executive rewrite property before sending anything back upstairs.</p>
+          `;
+        }
+        return;
+      }
+
+      updatedConference.disabled = true;
+      updatedConference.textContent = "Sending Back Upstairs";
+
+      const questions = normalizeCarstairsQuestions(activeExecutiveRewritePacket).map((question) => ({
+        id: question.id,
+        label: question.label,
+        prompt: question.prompt
+      }));
+
+      try {
+        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(activePropertyKey, {
+          questions,
+          answers: collectReconferenceAnswers()
+        }));
+        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
+        window.location.href = `carstairs-office.html?property=${encodeURIComponent(activePropertyKey)}`;
+      } catch (error) {
+        if (readerVerdict) {
+          readerVerdict.innerHTML = `
+            <p class="eyebrow">Executive Return</p>
+            <h3>The return packet did not file upstairs.</h3>
+            <p>${escapeHtml(error && error.message ? error.message : "Carstairs did not return a usable memorandum on this pass.")}</p>
+          `;
+        }
+        updatedConference.disabled = false;
+        updatedConference.textContent = "Send Back Upstairs to Carstairs";
+      }
+      return;
+    }
+
     if (reconferenceCount >= 2) {
       showExecutiveVerdict("wastebasket");
       return;
@@ -1476,6 +1895,14 @@ function requestOfficialTreatment(propertyId, writers) {
 
 function renderLiveTreatmentProperty(property) {
   if (!property || !treatmentTitle) return;
+  if (!isTreatmentRoomProperty(property)) {
+    showTreatmentDeskMessage("Select Property", "This property is not presently on the Treatment desk. Select another current file.");
+    if (prepareTreatment) {
+      prepareTreatment.disabled = true;
+      prepareTreatment.textContent = "Awaiting Treatment Packet";
+    }
+    return;
+  }
 
   activeTreatmentProperty = property;
   const title = property.title || "Untitled Property";
@@ -1525,6 +1952,7 @@ if (treatmentTitle) {
           String(item.propertyId || "").toLowerCase() === key.toLowerCase()
         );
         if (property) renderLiveTreatmentProperty(property);
+        else showTreatmentDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
       })
       .catch(() => {
         if (kicker) kicker.textContent = "Treatment Room - ledger unavailable";
@@ -1540,6 +1968,7 @@ if (treatmentTitle) {
   }
   treatmentChecks.forEach((check) => check.addEventListener("change", updateTreatmentSelection));
   updateTreatmentSelection();
+  initTreatmentRoomSelector();
 }
 
 if (prepareTreatment && officialTreatment) {
@@ -1636,7 +2065,7 @@ function showCarstairsVerdict(kind, quote) {
   if (!carstairsVerdict || !carstairsStamp || !carstairsQuote || !carstairsAction) return;
   const labels = {
     greenlight: ["Greenlight", "final-stamp final-stamp--treatments", "Return to the Scenario Desk", "scenario-desk.html"],
-    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Return to Treatment Room", "#carstairs-rewrite"],
+    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Go Back to Writers' Room", activeCarstairsProperty ? `writers-room.html?property=${encodeURIComponent(activeCarstairsProperty.propertyId || getCarstairsProperty())}` : "writers-room.html"],
     wastebasket: ["Wastebasket", "final-stamp final-stamp--wastebasket", "Return to the Scenario Desk", "scenario-desk.html"]
   };
   const [stamp, className, action, href] = labels[kind] || labels.greenlight;
@@ -1650,6 +2079,14 @@ function showCarstairsVerdict(kind, quote) {
 
 function renderCarstairsPacket(property) {
   if (!property || !carstairsTitle) return;
+  if (!isCarstairsRoomProperty(property)) {
+    showCarstairsDeskMessage("Select Property for Evaluation", "This property is not presently on Carstairs' desk. Select another current file.");
+    if (evaluateTreatment) {
+      evaluateTreatment.disabled = true;
+      evaluateTreatment.textContent = "Awaiting Treatment Packet";
+    }
+    return;
+  }
   activeCarstairsProperty = property;
   document.title = `${property.title || "Untitled Property"} | Carstairs' Office`;
   carstairsTitle.textContent = property.title || "Untitled Property";
@@ -1704,18 +2141,19 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
   }
 
   carstairsQuestions.innerHTML = questions.map((question) => `
-    <label class="executive-question">
+    <article class="executive-question">
       <h3>${escapeHtml(question.label)}</h3>
       <p>${escapeHtml(question.prompt)}</p>
-      <textarea
-        data-carstairs-question-id="${escapeHtml(question.id)}"
-        placeholder="${escapeHtml(question.placeholder)}"
-      >${escapeHtml(answers[question.id] || "")}</textarea>
-    </label>
+      <p class="executive-answer">${escapeHtml(answers[question.id] || "To be answered in the Writers' Room.")}</p>
+    </article>
   `).join("");
 
   if (forceOpen || Object.values(answers).some(Boolean)) {
     carstairsRewrite.hidden = false;
+  }
+  if (resubmitCarstairs) {
+    resubmitCarstairs.disabled = false;
+    resubmitCarstairs.textContent = "Go Back to Writers' Room";
   }
 }
 
@@ -1812,7 +2250,10 @@ if (carstairsTitle) {
         const property = (payload.properties || []).find((item) =>
           String(item.propertyId || "").toLowerCase() === key.toLowerCase()
         );
-        if (!property) return;
+        if (!property) {
+          showCarstairsDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
+          return;
+        }
         renderCarstairsPacket(property);
         const saved = parseSavedCarstairs(property);
         if (saved) {
@@ -1827,6 +2268,7 @@ if (carstairsTitle) {
     carstairsTitle.textContent = file.title;
     if (carstairsLogline) carstairsLogline.textContent = file.logline;
   }
+  initCarstairsSelector();
 }
 
 if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
@@ -1872,85 +2314,19 @@ if (evaluateTreatment && carstairsMemo && carstairsOpinion) {
   });
 }
 
-if (carstairsAction && carstairsRewrite) {
-  carstairsAction.addEventListener("click", (event) => {
-    if (carstairsAction.getAttribute("href") !== "#carstairs-rewrite") return;
-    event.preventDefault();
-    if (activeCarstairsPayload) {
-      renderCarstairsRewriteForm(activeCarstairsPayload, true);
-    }
-    if (carstairsRewriteUsed && !carstairsRewrite.hidden) return;
-    carstairsRewriteUsed = true;
-    carstairsRewrite.hidden = false;
-    startCarstairsClock();
-    carstairsRewrite.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
-}
-
 if (resubmitCarstairs) {
   resubmitCarstairs.addEventListener("click", async () => {
     const key = getCarstairsProperty();
-    if (/^SPC-/i.test(key)) {
-      if (!activeCarstairsPayload || activeCarstairsPayload.verdict !== "rewrite") {
-        if (carstairsMemoTitle && carstairsOpinion) {
-          carstairsMemoTitle.textContent = "There is no rewrite order on file.";
-          carstairsOpinion.textContent = "Carstairs can only receive a return packet when he has actually demanded executive repairs.";
-          carstairsMemo.hidden = false;
-        }
-        return;
-      }
-
-      const questionNodes = Array.from(document.querySelectorAll("[data-carstairs-question-id]"));
-      const rewriteNotes = {
-        questions: normalizeCarstairsQuestions(activeCarstairsPayload).map((question) => ({
-          id: question.id,
-          label: question.label,
-          prompt: question.prompt
-        })),
-        answers: questionNodes.map((node) => ({
-          id: node.dataset.carstairsQuestionId || "",
-          answer: node.value || ""
-        }))
-      };
-
-      resubmitCarstairs.disabled = true;
-      resubmitCarstairs.textContent = "Sending Back Upstairs";
-      if (carstairsMemoTitle && carstairsOpinion) {
-        carstairsMemoTitle.textContent = "Carstairs is reading the returned treatment.";
-        carstairsOpinion.textContent = "The revised packet has gone upstairs again. The executive office is comparing the repairs against the earlier memorandum.";
-        carstairsMemo.hidden = false;
-      }
-
-      try {
-        const payload = await withMinimumReadingDelay(() => requestCarstairsVerdict(key, rewriteNotes));
-        if (!payload || !payload.ok) throw new Error(payload && payload.error ? payload.error : "Carstairs response was not OK.");
-        if (activeCarstairsProperty) {
-          activeCarstairsProperty.carstairsJson = JSON.stringify(payload);
-        }
-        renderSavedCarstairsMemo(payload);
-        if (carstairsRewrite) carstairsRewrite.hidden = true;
-        if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
-      } catch (error) {
-        if (carstairsMemoTitle && carstairsOpinion) {
-          carstairsMemoTitle.textContent = "The memorandum was returned in disorder.";
-          carstairsOpinion.textContent = error && error.message
-            ? `Carstairs did not file a proper second memorandum. ${error.message}`
-            : "Carstairs did not file a proper second memorandum. The revision remains on the desk.";
-          carstairsMemo.hidden = false;
-        }
-        resubmitCarstairs.disabled = false;
-        resubmitCarstairs.textContent = "Send Back Upstairs";
-      }
+    if (/^SPC-/i.test(key) && activeCarstairsPayload && activeCarstairsPayload.verdict === "rewrite") {
+      window.location.href = `writers-room.html?property=${encodeURIComponent(key)}`;
       return;
     }
 
     if (carstairsMemoTitle && carstairsOpinion) {
-      carstairsMemoTitle.textContent = "Now the treatment has blood in it.";
-      carstairsOpinion.textContent = "Better. The repair gives the central image a reason to exist and puts the wound where the audience can feel it. I still dislike the machinery of the second movement, but I can sell a daughter climbing into her father's sin while the city watches the clock. That is a picture.";
+      carstairsMemoTitle.textContent = "There is no executive rewrite to return.";
+      carstairsOpinion.textContent = "Carstairs has not ordered a return on this packet. Select a rewrite file if you mean to send material back downstairs.";
+      carstairsMemo.hidden = false;
     }
-    showCarstairsVerdict("greenlight", "Greenlight it. But keep the clock cruel and the girl braver than the men around her.");
-    if (carstairsRewrite) carstairsRewrite.hidden = true;
-    if (carstairsVerdict) carstairsVerdict.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
 

@@ -66,9 +66,14 @@
             <p>The Writers' Room</p>
             <span id="property-kicker">Property Under Consideration</span>
           </div>
-          <h2 id="property-title">Preparing Property File</h2>
-          <p class="property-logline" id="property-logline">The current property packet will appear here as soon as the ledger finishes loading.</p>
+          <h2 id="property-title">Select Property</h2>
+          <p class="property-logline" id="property-logline">Choose a property currently on the Writers' Room desk.</p>
           <blockquote id="property-notes"><strong>Submitter's Notes:</strong> No notes have been filed yet.</blockquote>
+          <section class="room-property-picker" id="writers-room-property-picker">
+            <p class="eyebrow">Select Property</p>
+            <div class="room-property-tiles" id="writers-room-property-tiles"></div>
+            <p class="room-property-picker__empty" id="writers-room-property-empty">Only current Writers' Room properties will appear here.</p>
+          </section>
         </article>
 
         <div class="scenario-reader-actions" id="scenario-reader-actions" hidden>
@@ -417,7 +422,7 @@
           })
           .catch(() => {
             const readerName = document.querySelector("#reader-name");
-            if (readerName) readerName.textContent = "Ledger unavailable - showing sample dossier";
+            if (readerName) readerName.textContent = "Ledger unavailable - dossier pending";
           });
       })();
     </script>

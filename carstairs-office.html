@@ -31,8 +31,13 @@
         <article class="carstairs-desk">
           <div>
             <p class="eyebrow">Treatment on the Desk</p>
-            <h2 id="carstairs-title">No filed property is on this desk yet.</h2>
-            <p id="carstairs-logline">Send a treatment upstairs from the Treatment Room and the executive packet will be drawn here.</p>
+            <h2 id="carstairs-title">Select Property for Evaluation</h2>
+            <p id="carstairs-logline">Choose a property currently on Carstairs' desk for executive review.</p>
+            <section class="room-property-picker" id="carstairs-property-picker">
+              <p class="eyebrow">Select Property</p>
+              <div class="room-property-tiles" id="carstairs-property-tiles"></div>
+              <p class="room-property-picker__empty" id="carstairs-property-empty">Only current executive packets will appear here.</p>
+            </section>
           </div>
           <button type="button" id="evaluate-treatment">Evaluate the Treatment</button>
         </article>
@@ -75,10 +80,10 @@
             <strong id="carstairs-timer">30:00</strong>
           </div>
 
-          <form class="reconference-form">
+          <div class="reconference-form">
             <div id="carstairs-questions"></div>
-            <button type="button" id="resubmit-carstairs">Send Back Upstairs</button>
-          </form>
+            <button type="button" id="resubmit-carstairs">Go Back to Writers' Room</button>
+          </div>
         </article>
       </section>
     </main>

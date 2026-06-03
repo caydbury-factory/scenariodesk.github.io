@@ -1838,6 +1838,46 @@ footer {
   justify-content: center;
 }
 
+.room-property-picker {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(144, 97, 54, .22);
+}
+
+.room-property-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: .7rem;
+}
+
+.room-property-tile {
+  min-height: 42px;
+  padding: .8rem 1.15rem;
+  color: #d5a90d;
+  background: #1b130d;
+  border: 2px solid #c99108;
+  border-radius: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: .88rem;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.room-property-tile.is-active {
+  color: #fff4d7;
+  background: #5b2415;
+}
+
+.room-property-picker__empty {
+  margin: .75rem 0 0;
+  color: #7d431c;
+  font-family: "Special Elite", monospace;
+  line-height: 1.55;
+}
+
 .writer-callboard .button {
   min-height: 42px;
   padding: .8rem 1.25rem;
