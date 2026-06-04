@@ -948,6 +948,59 @@ function requestConferenceVerdicts(reconferenceNotes) {
   });
 }
 
+function waitForFiledConferencePacket(expectedReconferenceCount) {
+  return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
+    const expectedCount = Number(expectedReconferenceCount || 0) || 0;
+
+    const poll = () => {
+      loadLedgerProperties()
+        .then((payload) => {
+          if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
+          const property = (payload.properties || []).find((item) =>
+            String(item.propertyId || "").toLowerCase() === String(activePropertyKey || "").toLowerCase()
+          );
+          const saved = parseSavedConference(property);
+          const savedCount = Number(saved?.reconferenceCount || 0) || 0;
+          if (saved && savedCount >= expectedCount && saved.reviewStatus) {
+            resolve(saved);
+            return;
+          }
+          if (Date.now() - startedAt > 120000) {
+            reject(new Error("The writers did not file the repair packet before the office clock ran out."));
+            return;
+          }
+          window.setTimeout(poll, 4000);
+        })
+        .catch((error) => {
+          if (Date.now() - startedAt > 120000) {
+            reject(error);
+            return;
+          }
+          window.setTimeout(poll, 4000);
+        });
+    };
+
+    poll();
+  });
+}
+
+async function postConferenceRepairAnswers(reconferenceNotes) {
+  const expectedCount = Number(reconferenceNotes?.reconferenceCount || reconferenceCount + 1 || 1) || 1;
+  await fetch(scenarioBackendUrl, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      action: "runConference",
+      propertyId: activePropertyKey,
+      writers: activeConferenceWriterKeys.join(","),
+      reconferenceNotes
+    })
+  });
+  return waitForFiledConferencePacket(expectedCount);
+}
+
 function reviewDueDate(payload) {
   const due = payload && payload.reviewDueAt ? new Date(payload.reviewDueAt) : null;
   return due && !Number.isNaN(due.getTime()) ? due : null;
@@ -1585,7 +1638,7 @@ if (updatedConference) {
           label: question.label,
           prompt: question.prompt
         }));
-        const payload = await requestConferenceVerdicts({
+        const payload = await postConferenceRepairAnswers({
           questions,
           answers: collectReconferenceAnswers(),
           note: collectReconferenceNote(),
@@ -1602,10 +1655,11 @@ if (updatedConference) {
         }
       } catch (error) {
         if (readerVerdict) {
+          const detail = error && error.message ? error.message : "No detailed error was returned.";
           readerVerdict.innerHTML = `
             <p class="eyebrow">Updated Writers' Verdicts</p>
             <h3>The reconference clerk could not file the repair pass.</h3>
-            <p>The new material remains on the table. Try the updated conference once more.</p>
+            <p>The new material remains on the table. ${escapeHtml(detail)}</p>
           `;
         }
         updatedConference.disabled = false;
