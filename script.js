@@ -895,6 +895,9 @@ function renderReconferenceQuestions(payload) {
       <textarea data-reconference-question-id="${escapeHtml(question.id)}" placeholder="${escapeHtml(question.placeholder)}">${escapeHtml(answers[question.id] || "")}</textarea>
     </label>
   `).join("");
+  if (reconferenceNote) {
+    reconferenceNote.value = payload?.reconferenceNotes || "";
+  }
 }
 
 function collectReconferenceAnswers() {
@@ -902,6 +905,10 @@ function collectReconferenceAnswers() {
     id: node.dataset.reconferenceQuestionId || "",
     answer: node.value || ""
   }));
+}
+
+function collectReconferenceNote() {
+  return reconferenceNote ? reconferenceNote.value || "" : "";
 }
 
 function requestConferenceVerdicts(reconferenceNotes) {
@@ -941,6 +948,81 @@ function requestConferenceVerdicts(reconferenceNotes) {
   });
 }
 
+function reviewDueDate(payload) {
+  const due = payload && payload.reviewDueAt ? new Date(payload.reviewDueAt) : null;
+  return due && !Number.isNaN(due.getTime()) ? due : null;
+}
+
+function reviewRemainingMs(payload) {
+  const due = reviewDueDate(payload);
+  return due ? Math.max(0, due.getTime() - Date.now()) : 0;
+}
+
+function formatReviewRemaining(ms) {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function showReconferenceQuestionsState(payload) {
+  if (!reconferenceWorkshop) return;
+  clearInterval(reconferenceInterval);
+  reconferenceWorkshop.hidden = false;
+  if (reconferenceFeedback) reconferenceFeedback.hidden = false;
+  if (reconferenceTimer) {
+    reconferenceTimer.textContent = `${String(payload?.reviewHours || 72).padStart(2, "0")}:00`;
+    const timerPanel = reconferenceTimer.closest(".countdown");
+    if (timerPanel) timerPanel.hidden = true;
+  }
+  renderReconferenceQuestions(payload);
+  document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
+    node.disabled = false;
+  });
+  if (reconferenceNote) reconferenceNote.disabled = false;
+  if (updatedConference) {
+    updatedConference.disabled = false;
+    updatedConference.textContent = "Submit Answers to the Writers";
+  }
+}
+
+function showReconferenceUnderReviewState(payload) {
+  if (!reconferenceWorkshop || !reconferenceTimer) return;
+  reconferenceWorkshop.hidden = false;
+  const timerPanel = reconferenceTimer.closest(".countdown");
+  if (timerPanel) timerPanel.hidden = false;
+  if (reconferenceFeedback) {
+    reconferenceFeedback.hidden = false;
+    reconferenceFeedback.innerHTML = `
+      <div>
+        <h3>Writers Reviewing Repairs</h3>
+        <p>The additional material has been filed. The updated conference verdict is sealed until the review clock expires.</p>
+      </div>
+    `;
+  }
+  renderReconferenceQuestions(payload);
+  document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
+    node.disabled = true;
+  });
+  if (reconferenceNote) reconferenceNote.disabled = true;
+
+  const tick = () => {
+    const remaining = reviewRemainingMs(payload);
+    reconferenceTimer.textContent = formatReviewRemaining(remaining);
+    if (updatedConference) {
+      updatedConference.disabled = remaining > 0;
+      updatedConference.textContent = remaining > 0 ? "Awaiting Writers' Review" : "Open Updated Conference";
+    }
+    if (remaining <= 0) {
+      clearInterval(reconferenceInterval);
+    }
+  };
+
+  clearInterval(reconferenceInterval);
+  tick();
+  reconferenceInterval = window.setInterval(tick, 1000);
+}
+
 function applyConferenceVerdicts(payload) {
   if (!payload || !payload.ok || !Array.isArray(payload.writers) || !payload.writers.length) return false;
 
@@ -970,7 +1052,11 @@ function applyConferenceVerdicts(payload) {
   }
 
   if (activeConferenceDecision === "reconference") {
-    renderReconferenceQuestions(payload);
+    if (payload.reviewStatus === "under_review") {
+      showReconferenceUnderReviewState(payload);
+    } else {
+      showReconferenceQuestionsState(payload);
+    }
   }
 
   return true;
@@ -989,11 +1075,21 @@ function renderSavedConferenceState(property) {
 
   photoplaywrightIndex = 0;
   renderWriterCallboard();
-  showConferenceSelectionPrompt("This conference packet has already been filed. Consult with any photoplaywright below to review the memoranda again.");
-  showExecutiveVerdict(decideExecutiveVerdict());
+  if (saved.reviewStatus === "under_review") {
+    showConferenceSelectionPrompt("The writers are reviewing the filed repairs. The updated verdict remains sealed until the review clock expires.");
+    if (finalEvaluation) finalEvaluation.hidden = true;
+    showReconferenceUnderReviewState(saved);
+  } else {
+    showConferenceSelectionPrompt("This conference packet has already been filed. Consult with any photoplaywright below to review the memoranda again.");
+    showExecutiveVerdict(decideExecutiveVerdict());
+  }
 
   if (activeConferenceDecision === "reconference") {
-    renderReconferenceQuestions(saved);
+    if (saved.reviewStatus === "under_review") {
+      showReconferenceUnderReviewState(saved);
+    } else {
+      showReconferenceQuestionsState(saved);
+    }
   }
 
   return true;
@@ -1042,6 +1138,7 @@ const reconferenceWorkshop = document.querySelector("#reconference-workshop");
 const reconferenceTimer = document.querySelector("#reconference-timer");
 const reconferenceFeedback = document.querySelector("#reconference-feedback");
 const updatedConference = document.querySelector("#updated-conference");
+const reconferenceNote = document.querySelector("#reconference-note");
 const labelMoralPressure = document.querySelector("#label-moral-pressure");
 const labelRomance = document.querySelector("#label-romance");
 const labelSpectacle = document.querySelector("#label-spectacle");
@@ -1454,23 +1551,34 @@ if (finalAction && reconferenceWorkshop) {
   finalAction.addEventListener("click", (event) => {
     if (activeExecutiveVerdict !== "reconference") return;
     event.preventDefault();
-    reconferenceCount += 1;
-    reconferenceWorkshop.hidden = false;
-    startReconferenceClock();
+    showReconferenceQuestionsState(activeConferencePayload);
     reconferenceWorkshop.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
 if (updatedConference) {
   updatedConference.addEventListener("click", async () => {
-    if (reconferenceCount >= 2) {
-      showExecutiveVerdict("wastebasket");
-      return;
-    }
-
     if (/^SPC-/i.test(activePropertyKey)) {
+      if (activeConferencePayload?.reviewStatus === "under_review") {
+        if (reviewRemainingMs(activeConferencePayload) > 0) return;
+        updatedConference.disabled = true;
+        updatedConference.textContent = "Opening Updated Conference";
+        try {
+          const payload = await requestConferenceVerdicts();
+          if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
+          photoplaywrightIndex = 0;
+          renderWriterCallboard();
+          showConferenceSelectionPrompt("The timed review has been filed. Consult with any photoplaywright below to review the updated memoranda.");
+          showExecutiveVerdict(decideExecutiveVerdict());
+        } catch (error) {
+          updatedConference.disabled = false;
+          updatedConference.textContent = "Open Updated Conference";
+        }
+        return;
+      }
+
       updatedConference.disabled = true;
-      updatedConference.textContent = "Conferencing the Repairs";
+      updatedConference.textContent = "Submitting Answers";
       try {
         const questions = normalizeConferenceQuestions(activeConferencePayload).map((question) => ({
           id: question.id,
@@ -1480,13 +1588,18 @@ if (updatedConference) {
         const payload = await requestConferenceVerdicts({
           questions,
           answers: collectReconferenceAnswers(),
+          note: collectReconferenceNote(),
           reconferenceCount: reconferenceCount + 1
         });
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
-        renderWriterCallboard();
-        showConferenceSelectionPrompt("The updated conference has filed a new packet. Consult with any photoplaywright below to review the memoranda.");
-        showExecutiveVerdict(decideExecutiveVerdict());
+        if (payload.reviewStatus === "under_review") {
+          showConferenceSelectionPrompt("The writers have accepted the additional material and retired to review it. The updated verdict will open when the clock expires.");
+        } else {
+          renderWriterCallboard();
+          showConferenceSelectionPrompt("The updated conference has filed a new packet. Consult with any photoplaywright below to review the memoranda.");
+          showExecutiveVerdict(decideExecutiveVerdict());
+        }
       } catch (error) {
         if (readerVerdict) {
           readerVerdict.innerHTML = `
@@ -1496,8 +1609,13 @@ if (updatedConference) {
           `;
         }
         updatedConference.disabled = false;
-        updatedConference.textContent = "Convene Updated Conference";
+        updatedConference.textContent = "Submit Answers to the Writers";
       }
+      return;
+    }
+
+    if (reconferenceCount >= 2) {
+      showExecutiveVerdict("wastebasket");
       return;
     }
 
