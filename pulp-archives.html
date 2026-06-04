@@ -134,8 +134,8 @@
       <section class="band archives archive-workroom">
         <div class="section-head">
           <p class="eyebrow">Drive Archive Structure</p>
-          <h2>Magazine to Year to Issue PDF</h2>
-          <p>Magazine runs are cataloged as studio holdings. Choose an issue below and the miner will prepare story cards from that exact source.</p>
+          <h2>Magazine and Book Runs</h2>
+          <p>Magazine issues and book files are cataloged as studio holdings. Choose a file below and the miner will prepare story cards from that exact source.</p>
         </div>
 
         <div class="archive-stats">
@@ -346,10 +346,11 @@
             const issues = groups[magazine] || [];
             const years = [...new Set(issues.map((issue) => issue.year).filter(Boolean))].sort();
             const yearLabel = years.length > 1 ? `${years[0]}-${years[years.length - 1]}` : (years[0] || "Year uncataloged");
+            const collection = issues.find((issue) => issue.collection)?.collection || "Magazine";
             return `
               <button class="archive-issue ${magazine === selectedMagazine ? "is-selected" : ""}" type="button" data-magazine="${escapeHtml(magazine)}">
                 <span>${escapeHtml(magazine)}</span>
-                <small>${escapeHtml(yearLabel)} / ${issues.length} files indexed</small>
+                <small>${escapeHtml(collection)} / ${escapeHtml(yearLabel)} / ${issues.length} files indexed</small>
               </button>
             `;
           }).join("");
@@ -398,7 +399,7 @@
           issueStatus.textContent = selectedIssue.status || "Indexed";
 
           if (status) {
-            status.textContent = `${selectedIssue.magazine || "Archive"} file selected from the live Drive catalog.`;
+            status.textContent = `${selectedIssue.collection || "Archive"} file selected from the live Drive catalog.`;
           }
         }
 
@@ -415,7 +416,7 @@
           selectedArchiveIssues.innerHTML = selectedIssues.map((issue) => `
             <li>
               <span>${escapeHtml(issue.title || "Selected Issue")}</span>
-              <small>${escapeHtml([issue.magazine, issue.year, issue.issue].filter(Boolean).join(" / "))}</small>
+              <small>${escapeHtml([issue.collection, issue.magazine, issue.year, issue.issue].filter(Boolean).join(" / "))}</small>
               <button type="button" data-remove-issue="${escapeHtml(issue.archiveId)}" aria-label="Remove ${escapeHtml(issue.title || "issue")}">Remove</button>
             </li>
           `).join("");
@@ -432,8 +433,10 @@
         }
 
         function renderArchiveStats() {
-          const magazines = new Set(archiveRecords.map((record) => record.magazine).filter(Boolean));
-          const books = archiveRecords.filter((record) => /book|novel/i.test(String(record.category || record.collectionType || record.sourceType || record.magazine || "")));
+          const magazineRecords = archiveRecords.filter((record) => !/book/i.test(String(record.collection || record.category || record.sourceType || "")));
+          const bookRecords = archiveRecords.filter((record) => /book/i.test(String(record.collection || record.category || record.sourceType || "")));
+          const magazines = new Set(magazineRecords.map((record) => record.magazine).filter(Boolean));
+          const books = new Set(bookRecords.map((record) => record.magazine || record.title).filter(Boolean));
           const totalFiles = document.querySelector("#archive-total-files");
           const totalMagazines = document.querySelector("#archive-total-magazines");
           const totalBooks = document.querySelector("#archive-total-books");
@@ -441,7 +444,7 @@
 
           if (totalFiles) totalFiles.textContent = String(archiveRecords.length);
           if (totalMagazines) totalMagazines.textContent = String(magazines.size);
-          if (totalBooks) totalBooks.textContent = String(books.length ? new Set(books.map((record) => record.magazine || record.title).filter(Boolean)).size : 0);
+          if (totalBooks) totalBooks.textContent = String(books.size);
           if (totalSelected) totalSelected.textContent = String(selectedIssues.length);
         }
 
