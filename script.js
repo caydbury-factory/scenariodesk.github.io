@@ -903,8 +903,40 @@ function normalizeConferenceAnswers(payload) {
   }, {});
 }
 
+function clampConferenceRound(value) {
+  return Math.max(1, Math.min(2, Number(value) || 1));
+}
+
+function normalizeReconferenceCount(payload, fallback = 0) {
+  const explicitCount = Number(payload?.reconferenceCount);
+  if (Number.isFinite(explicitCount) && explicitCount > 0) return Math.min(2, explicitCount);
+
+  const history = Array.isArray(payload?.reconferenceHistory) ? payload.reconferenceHistory : [];
+  const historyRounds = history
+    .map((entry) => Number(entry?.round))
+    .filter((round) => Number.isFinite(round) && round > 0);
+  if (historyRounds.length) return Math.min(2, Math.max(...historyRounds));
+
+  const pendingRound = Number(payload?.pendingReconference?.round);
+  if (payload?.reviewStatus === "under_review" && Number.isFinite(pendingRound) && pendingRound > 0) {
+    return Math.min(2, pendingRound);
+  }
+
+  const questionRound = Number(payload?.questionRound);
+  if (Number.isFinite(questionRound) && questionRound > 1) return Math.min(2, questionRound - 1);
+
+  return Math.max(0, Math.min(2, Number(fallback) || 0));
+}
+
 function conferenceQuestionRound(payload) {
-  return Math.max(1, Math.min(2, Number(payload?.questionRound || payload?.pendingReconference?.round || payload?.reconferenceCount || 1) || 1));
+  const explicitRound = Number(payload?.questionRound || payload?.pendingReconference?.round);
+  if (Number.isFinite(explicitRound) && explicitRound > 0) return clampConferenceRound(explicitRound);
+
+  if (payload?.reviewStatus === "under_review") {
+    return clampConferenceRound(normalizeReconferenceCount(payload, reconferenceCount) || 1);
+  }
+
+  return clampConferenceRound(normalizeReconferenceCount(payload, reconferenceCount) + 1);
 }
 
 function renderFiledReconferenceHistory(payload, mode = "questions") {
@@ -1160,7 +1192,7 @@ function applyConferenceVerdicts(payload) {
   if (!payload || !payload.ok || !Array.isArray(payload.writers) || !payload.writers.length) return false;
 
   activeConferencePayload = payload;
-  reconferenceCount = Number(payload.reconferenceCount || reconferenceCount || 0) || 0;
+  reconferenceCount = normalizeReconferenceCount(payload, reconferenceCount);
   const writers = payload.writers.slice(0, 4);
   activePhotoplaywrightVerdicts = writers.map((writer, index) => {
     const nextWriter = writers[index + 1];
@@ -1713,7 +1745,8 @@ if (updatedConference) {
       updatedConference.disabled = true;
       updatedConference.textContent = "Submitting Answers";
       try {
-        const questions = normalizeConferenceQuestions(activeConferencePayload).map((question) => ({
+        const round = conferenceQuestionRound(activeConferencePayload);
+        const questions = normalizeCurrentConferenceQuestions(activeConferencePayload).map((question) => ({
           id: question.id,
           label: question.label,
           prompt: question.prompt
@@ -1722,7 +1755,8 @@ if (updatedConference) {
           questions,
           answers: collectReconferenceAnswers(),
           note: collectReconferenceNote(),
-          reconferenceCount: reconferenceCount + 1
+          questionRound: round,
+          reconferenceCount: Math.max(round, reconferenceCount + 1)
         });
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
@@ -1742,8 +1776,9 @@ if (updatedConference) {
             <p>The new material remains on the table. ${escapeHtml(detail)}</p>
           `;
         }
+        const round = conferenceQuestionRound(activeConferencePayload);
         updatedConference.disabled = false;
-        updatedConference.textContent = "Submit Answers to the Writers";
+        updatedConference.textContent = round >= 2 ? "Submit Second-Round Answers" : "Submit Answers to the Writers";
       }
       return;
     }
