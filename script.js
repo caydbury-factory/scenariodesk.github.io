@@ -837,9 +837,12 @@ function normalizeConferenceDecision(value) {
 }
 
 function normalizeConferenceQuestions(payload) {
-  const questions = Array.isArray(payload && payload.reconferenceQuestions)
-    ? payload.reconferenceQuestions
-    : [];
+  const pendingQuestions = payload?.pendingReconference?.questions;
+  const questions = Array.isArray(pendingQuestions) && pendingQuestions.length
+    ? pendingQuestions
+    : Array.isArray(payload && payload.reconferenceQuestions)
+      ? payload.reconferenceQuestions
+      : [];
 
   if (questions.length) {
     return questions.slice(0, 4).map((item, index) => ({
@@ -872,8 +875,25 @@ function normalizeConferenceQuestions(payload) {
   ];
 }
 
+function normalizeCurrentConferenceQuestions(payload) {
+  const questions = Array.isArray(payload && payload.reconferenceQuestions)
+    ? payload.reconferenceQuestions
+    : [];
+
+  if (questions.length) {
+    return questions.slice(0, 4).map((item, index) => ({
+      id: item.id || `repair_${index + 1}`,
+      label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
+      prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
+      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference..."
+    }));
+  }
+
+  return normalizeConferenceQuestions(payload);
+}
+
 function normalizeConferenceAnswers(payload) {
-  const raw = payload && payload.reconferenceAnswers;
+  const raw = payload?.pendingReconference?.answers || payload?.reconferenceAnswers;
   if (!raw) return {};
   if (!Array.isArray(raw) && typeof raw === "object") return raw;
   if (!Array.isArray(raw)) return {};
@@ -883,11 +903,66 @@ function normalizeConferenceAnswers(payload) {
   }, {});
 }
 
+function conferenceQuestionRound(payload) {
+  return Math.max(1, Math.min(2, Number(payload?.questionRound || payload?.pendingReconference?.round || payload?.reconferenceCount || 1) || 1));
+}
+
+function renderFiledReconferenceHistory(payload, mode = "questions") {
+  if (!reconferenceFeedback) return;
+  const history = Array.isArray(payload?.reconferenceHistory) ? payload.reconferenceHistory : [];
+  const pending = payload?.pendingReconference;
+  const blocks = [];
+
+  history.forEach((entry) => {
+    const questions = Array.isArray(entry.questions) ? entry.questions : [];
+    const answers = entry.answers || {};
+    const answerHtml = questions.map((question) => `
+      <div class="analysis-card">
+        <h3>${escapeHtml(question.label || question.id || "Filed Question")}</h3>
+        <p>${escapeHtml(question.prompt || "")}</p>
+        <blockquote>${escapeHtml(answers[question.id] || "No answer was filed for this question.")}</blockquote>
+      </div>
+    `).join("");
+    blocks.push(`
+      <div>
+        <h3>Round ${escapeHtml(entry.round || "")} Answers Filed</h3>
+        ${answerHtml || "<p>Prior reconference material is filed in the ledger.</p>"}
+        ${entry.note ? `<p><strong>General note:</strong> ${escapeHtml(entry.note)}</p>` : ""}
+      </div>
+    `);
+  });
+
+  if (mode === "under_review" && pending) {
+    blocks.push(`
+      <div>
+        <h3>Round ${escapeHtml(pending.round || conferenceQuestionRound(payload))} Answers Filed</h3>
+        <p>The writers have the added material shown below. Their new decision has not been written yet.</p>
+        ${pending.note ? `<p><strong>General note:</strong> ${escapeHtml(pending.note)}</p>` : ""}
+      </div>
+    `);
+  }
+
+  if (!blocks.length && mode === "questions") {
+    blocks.push(`
+      <div>
+        <h3>Development Questions</h3>
+        <p>The photoplaywrights have found promise in the material, but they need more specific dramatic ammunition before they can advance it.</p>
+      </div>
+    `);
+  }
+
+  reconferenceFeedback.hidden = false;
+  reconferenceFeedback.innerHTML = blocks.join("");
+}
+
 function renderReconferenceQuestions(payload) {
   const container = document.querySelector("#reconference-questions");
   if (!container) return;
-  const questions = normalizeConferenceQuestions(payload);
-  const answers = normalizeConferenceAnswers(payload);
+  const questions = payload?.reviewStatus === "under_review"
+    ? normalizeConferenceQuestions(payload)
+    : normalizeCurrentConferenceQuestions(payload);
+  const answers = payload?.reviewStatus === "under_review" ? normalizeConferenceAnswers(payload) : {};
+  const round = conferenceQuestionRound(payload);
   container.innerHTML = questions.map((question) => `
     <label>
       ${escapeHtml(question.label)}
@@ -896,7 +971,12 @@ function renderReconferenceQuestions(payload) {
     </label>
   `).join("");
   if (reconferenceNote) {
-    reconferenceNote.value = payload?.reconferenceNotes || "";
+    reconferenceNote.value = payload?.reviewStatus === "under_review"
+      ? (payload?.pendingReconference?.note || payload?.reconferenceNotes || "")
+      : "";
+    reconferenceNote.placeholder = round >= 2
+      ? "Add any final clarification before the writers make their last decision..."
+      : "Add any general note for the reconvened writers...";
   }
 }
 
@@ -1021,8 +1101,11 @@ function formatReviewRemaining(ms) {
 function showReconferenceQuestionsState(payload) {
   if (!reconferenceWorkshop) return;
   clearInterval(reconferenceInterval);
+  const round = conferenceQuestionRound(payload);
   reconferenceWorkshop.hidden = false;
-  if (reconferenceFeedback) reconferenceFeedback.hidden = false;
+  const heading = reconferenceWorkshop.querySelector("h2");
+  if (heading) heading.textContent = `Development Questions: Round ${round}`;
+  renderFiledReconferenceHistory(payload, "questions");
   if (reconferenceTimer) {
     reconferenceTimer.textContent = `${String(payload?.reviewHours || 72).padStart(2, "0")}:00`;
     const timerPanel = reconferenceTimer.closest(".countdown");
@@ -1035,24 +1118,19 @@ function showReconferenceQuestionsState(payload) {
   if (reconferenceNote) reconferenceNote.disabled = false;
   if (updatedConference) {
     updatedConference.disabled = false;
-    updatedConference.textContent = "Submit Answers to the Writers";
+    updatedConference.textContent = round >= 2 ? "Submit Second-Round Answers" : "Submit Answers to the Writers";
   }
 }
 
 function showReconferenceUnderReviewState(payload) {
   if (!reconferenceWorkshop || !reconferenceTimer) return;
+  const round = conferenceQuestionRound(payload);
   reconferenceWorkshop.hidden = false;
+  const heading = reconferenceWorkshop.querySelector("h2");
+  if (heading) heading.textContent = `Answers Filed: Round ${round}`;
   const timerPanel = reconferenceTimer.closest(".countdown");
   if (timerPanel) timerPanel.hidden = false;
-  if (reconferenceFeedback) {
-    reconferenceFeedback.hidden = false;
-    reconferenceFeedback.innerHTML = `
-      <div>
-        <h3>Writers Reviewing Repairs</h3>
-        <p>The additional material has been filed. The updated conference verdict is sealed until the review clock expires.</p>
-      </div>
-    `;
-  }
+  renderFiledReconferenceHistory(payload, "under_review");
   renderReconferenceQuestions(payload);
   document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
     node.disabled = true;
@@ -1064,7 +1142,9 @@ function showReconferenceUnderReviewState(payload) {
     reconferenceTimer.textContent = formatReviewRemaining(remaining);
     if (updatedConference) {
       updatedConference.disabled = remaining > 0;
-      updatedConference.textContent = remaining > 0 ? "Awaiting Writers' Review" : "Open Updated Conference";
+      updatedConference.textContent = remaining > 0
+        ? "Writers Reviewing Repairs"
+        : (round >= 2 ? "Open Final Conference" : "Open Updated Conference");
     }
     if (remaining <= 0) {
       clearInterval(reconferenceInterval);
@@ -2262,6 +2342,7 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
 
   const questions = normalizeCarstairsQuestions(payload);
   const answers = normalizeRewriteAnswers(payload);
+  const hasFiledAnswers = Object.values(answers).some(Boolean);
 
   if ((payload && payload.verdict) !== "rewrite" || !questions.length) {
     carstairsRewrite.hidden = true;
@@ -2271,11 +2352,12 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
 
   carstairsQuestions.innerHTML = questions.map((question) => `
     <label class="executive-question">
-      <h3>${escapeHtml(question.label)}</h3>
+      <h3>${escapeHtml(hasFiledAnswers ? `${question.label} - Answer Filed` : question.label)}</h3>
       <p>${escapeHtml(question.prompt)}</p>
       <textarea
         data-carstairs-question-id="${escapeHtml(question.id)}"
         placeholder="${escapeHtml(question.placeholder)}"
+        ${hasFiledAnswers ? "disabled" : ""}
       >${escapeHtml(answers[question.id] || "")}</textarea>
     </label>
   `).join("");
@@ -2284,8 +2366,8 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
     carstairsRewrite.hidden = false;
   }
   if (resubmitCarstairs) {
-    resubmitCarstairs.disabled = false;
-    resubmitCarstairs.textContent = "Send Back Upstairs";
+    resubmitCarstairs.disabled = hasFiledAnswers;
+    resubmitCarstairs.textContent = hasFiledAnswers ? "Answers Filed" : "Send Back Upstairs";
   }
 }
 
@@ -2478,8 +2560,16 @@ if (resubmitCarstairs) {
         }))
       };
 
+      questionNodes.forEach((node) => {
+        node.disabled = true;
+        const label = node.closest(".executive-question");
+        const heading = label && label.querySelector("h3");
+        if (heading && !/Answer Filed/i.test(heading.textContent || "")) {
+          heading.textContent = `${heading.textContent} - Answer Filed`;
+        }
+      });
       resubmitCarstairs.disabled = true;
-      resubmitCarstairs.textContent = "Sending Back Upstairs";
+      resubmitCarstairs.textContent = "Carstairs Reviewing Return";
       if (carstairsMemoTitle && carstairsOpinion) {
         carstairsMemoTitle.textContent = "Carstairs is reading the returned treatment.";
         carstairsOpinion.textContent = "The revised packet has gone back across his desk. The executive office is weighing the repairs against the first memorandum.";
