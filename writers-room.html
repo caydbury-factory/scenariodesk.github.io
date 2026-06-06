@@ -57,7 +57,7 @@
     <header class="inner-hero">
       <p class="eyebrow">Property Under Consideration</p>
       <h1>Writers' Room</h1>
-      <p class="lede">A property dossier prepared by the scenario reader before the writers are formally invited into conference.</p>
+      <p class="lede">A property dossier prepared so the writers can use the Photoplay Rules to encourage its promise, diagnose its needs, and help write it forward.</p>
     </header>
     <main>
       <section class="band writers-room-dossier">
@@ -114,7 +114,7 @@
           <div class="letter-envelope">
             <p class="eyebrow">Conference Letter</p>
             <h2 id="letter-title">Invite the photoplaywrights into conference.</h2>
-            <p>One letter goes out to the writing staff. Only those interested in the property reply, and each is called in separately to enter a verdict into the file.</p>
+            <p>One letter goes out to the writing staff. Only those interested in the property reply, and each is called in separately to preserve its strongest promise and propose concrete Photoplay Rule repairs. The writers advise; they do not reject.</p>
             <button type="button" id="send-letter">Send Conference Letter</button>
           </div>
         </section>
@@ -125,23 +125,23 @@
             <h2 id="conference-heading">Awaiting replies from the story staff.</h2>
           </div>
           <article class="memo memo--verdict" id="reader-verdict">
-            <p class="eyebrow">Writers' Verdicts</p>
+            <p class="eyebrow">Writers' Development Notes</p>
             <h3>Awaiting conference letter</h3>
             <p>Send the conference letter. Replies are expected within thirty-six studio hours.</p>
           </article>
           <div class="writer-callboard" id="writer-callboard" hidden></div>
           <article class="final-evaluation" id="final-evaluation" hidden>
-            <p class="eyebrow">Executive Verdict - Issued by Order of the Scenario Department</p>
-            <p class="final-stamp final-stamp--treatments" id="final-stamp">Send to Treatments</p>
+            <p class="eyebrow">Development Routing - Prepared by the Writers' Room</p>
+            <p class="final-stamp final-stamp--treatments" id="final-stamp">Ready for Treatment</p>
             <blockquote id="final-quote">This has a heart, a wound, and a house big enough to echo with both. Send it upstairs.</blockquote>
             <cite>- Miss Jeanette Marchmont, Chief of the Writing Room</cite>
-            <a class="button final-action" id="final-action" href="treatment-room.html">Send to the Treatment Room</a>
+            <a class="button final-action" id="final-action" href="treatment-room.html">Prepare the Treatment</a>
           </article>
 
           <article class="reconference-workshop" id="reconference-workshop" hidden>
             <p class="eyebrow">Reconference Order</p>
             <h2>Development Questions from the Writers</h2>
-            <p>The photoplaywrights have found promise in the material, but they require additional dramatic information before the timed reconference review begins.</p>
+            <p>The photoplaywrights have found promise in the material. They are identifying what to preserve and what to strengthen before the next development review begins.</p>
 
             <div class="review-estimates" id="review-estimates">
               <div><strong>Miss Marchmont</strong><span>36 studio hours</span></div>
@@ -184,6 +184,31 @@
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
     <script src="script.js"></script>
+    <script>
+      (() => {
+        const room = document.querySelector("#reader-roster");
+        const stamp = document.querySelector("#final-stamp");
+        const quote = document.querySelector("#final-quote");
+        const action = document.querySelector("#final-action");
+        const workshop = document.querySelector("#reconference-workshop");
+        const forbiddenDecision = /wastebasket|reject(?:ed|ion)?/i;
+
+        function enforceWritersRoomAuthority() {
+          if (!stamp || !forbiddenDecision.test(stamp.textContent || "")) return;
+          stamp.textContent = "More Development";
+          stamp.className = "final-stamp final-stamp--reconference";
+          if (quote) quote.textContent = "The writers have found work to do, not grounds to discard the property. Preserve the promise and answer the Photoplay Rule questions.";
+          if (action) {
+            action.textContent = "Open Development Questions";
+            action.href = "#reconference-workshop";
+          }
+          if (workshop) workshop.hidden = false;
+        }
+
+        if (room) new MutationObserver(enforceWritersRoomAuthority).observe(room, { subtree: true, childList: true, characterData: true, attributes: true });
+        enforceWritersRoomAuthority();
+      })();
+    </script>
     <script>
       (() => {
         const requestedProperty = new URLSearchParams(window.location.search).get("property");
