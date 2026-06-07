@@ -182,6 +182,34 @@ function loadLedgerProperties() {
   });
 }
 
+function restoreDevelopmentProperty(propertyId) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `restoreDevelopment_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Development restoration timed out."));
+    }, 30000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Development restoration request failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=restoreDevelopment&propertyId=${encodeURIComponent(propertyId)}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
 function statusClass(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized.includes("conference ready") || normalized.includes("greenlit") || normalized.includes("treatment")) return "stamp--green";
@@ -235,7 +263,7 @@ function isConferenceRepairProperty(property) {
   const verdict = lowerText(property && property.conferenceVerdict);
   const savedConference = parseSavedConference(property) || {};
   const decision = lowerText(savedConference.decision || savedConference.finalDecision);
-  return /reconference/.test(status) || /reconference/.test(verdict) || /reconference/.test(decision);
+  return /reconference|development/.test(status) || /reconference|development/.test(verdict) || /reconference|continue|paused/.test(decision);
 }
 
 function isExecutiveRewriteProperty(property) {
@@ -248,7 +276,7 @@ function isExecutiveRewriteProperty(property) {
 
 function isWritersRoomSelectorProperty(property) {
   const status = lowerText(property && property.status);
-  return /needs reader|conference ready|needs conference/.test(status) || isConferenceRepairProperty(property);
+  return /needs reader|conference ready|needs conference|needs development|development under review|development paused/.test(status) || isConferenceRepairProperty(property);
 }
 
 function canOpenInWritersRoom(property) {
@@ -352,9 +380,12 @@ function renderScenarioDesk(properties) {
 
   board.innerHTML = properties.map((property, index) => {
     const savedCarstairs = parseSavedCarstairs(property);
-    const hasCarstairs = Boolean(savedCarstairs) || /greenlit|executive rewrite|wastebasket/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
+    const hasCarstairs = Boolean(savedCarstairs) || /greenlit|executive rewrite/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
+    const isLegacyWriterWastebasket = /wastebasket/i.test(property.status || "") && !hasCarstairs;
     const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
-    const stamp = hasCarstairs
+    const stamp = isLegacyWriterWastebasket
+      ? "Development Paused"
+      : hasCarstairs
       ? (savedCarstairs && savedCarstairs.statusLabel ? savedCarstairs.statusLabel : (property.status || "Greenlit"))
       : hasTreatment
       ? "Treatment Applied"
@@ -365,9 +396,9 @@ function renderScenarioDesk(properties) {
     const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
     const actionLabel = hasCarstairs ? "Open Carstairs' Office" : hasTreatment ? "Open Treatment Room" : "Open Writers' Room";
+    const isDevelopmentPaused = (/development paused/i.test(property.status || "") || isLegacyWriterWastebasket) && !/waste/i.test(property.carstairsVerdict || "");
 
-    return `
-      <a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">
+    const cardBody = `
         <div class="property-card__clip"></div>
         <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
         ${idLine}
@@ -379,9 +410,28 @@ function renderScenarioDesk(properties) {
         </dl>
         <p>${escapeHtml(summary)}</p>
         <span class="button button--small">${escapeHtml(actionLabel)}</span>
-      </a>
+        ${isDevelopmentPaused ? `<button type="button" class="button button--small" data-restore-development="${escapeHtml(property.propertyId)}">Restore to Writers' Room</button>` : ""}
     `;
+    return isDevelopmentPaused
+      ? `<article class="property-card ${index === 0 ? "property-card--active" : ""}">${cardBody}</article>`
+      : `<a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">${cardBody}</a>`;
   }).join("");
+
+  board.querySelectorAll("[data-restore-development]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const propertyId = button.dataset.restoreDevelopment || "";
+      button.disabled = true;
+      button.textContent = "Restoring Development";
+      try {
+        const payload = await restoreDevelopmentProperty(propertyId);
+        if (!payload || !payload.ok) throw new Error(payload?.error || "Development restoration was not accepted.");
+        window.location.href = `writers-room.html?property=${encodeURIComponent(propertyId)}`;
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = error?.message || "Restore to Writers' Room";
+      }
+    });
+  });
 
   document.querySelector("#desk-total-properties").textContent = String(properties.length);
   document.querySelector("#desk-total-conference").textContent = String(properties.filter((property) => /conference ready/i.test(property.status || "")).length);
@@ -717,17 +767,17 @@ const executiveVerdicts = {
   },
   reconference: {
     type: "reconference",
-    stamp: "Reconference",
+    stamp: "Continue Development",
     className: "final-stamp final-stamp--reconference",
-    quote: "There is promise here, but the engine coughs. Return it to conference and make the stakes visible.",
-    action: "Reconvene the Conference",
+    quote: "The picture is taking shape. Let us settle the remaining story choices before the treatment is written.",
+    action: "Continue the Conference",
     href: "#reconference-workshop"
   },
-  wastebasket: {
-    type: "wastebasket",
-    stamp: "Wastebasket",
+  paused: {
+    type: "paused",
+    stamp: "Development Paused",
     className: "final-stamp final-stamp--wastebasket",
-    quote: "No spine, no pressure, no picture. Thank the submitter and clear the desk.",
+    quote: "The file remains alive, but the writers require additional source material before development can continue.",
     action: "Return to the Scenario Desk",
     href: "scenario-desk.html"
   }
@@ -831,8 +881,8 @@ function parseSavedConference(property) {
 
 function normalizeConferenceDecision(value) {
   const cleaned = String(value || "").toLowerCase();
-  if (cleaned.includes("waste")) return "wastebasket";
-  if (cleaned.includes("reconference") || cleaned.includes("rewrite") || cleaned.includes("repair")) return "reconference";
+  if (cleaned.includes("pause") || cleaned.includes("waste")) return "paused";
+  if (cleaned.includes("continue") || cleaned.includes("reconference") || cleaned.includes("rewrite") || cleaned.includes("repair")) return "reconference";
   return "treatments";
 }
 
@@ -845,7 +895,7 @@ function normalizeConferenceQuestions(payload) {
       : [];
 
   if (questions.length) {
-    return questions.slice(0, 4).map((item, index) => ({
+    return questions.map((item, index) => ({
       id: item.id || `repair_${index + 1}`,
       label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
@@ -881,7 +931,7 @@ function normalizeCurrentConferenceQuestions(payload) {
     : [];
 
   if (questions.length) {
-    return questions.slice(0, 4).map((item, index) => ({
+    return questions.map((item, index) => ({
       id: item.id || `repair_${index + 1}`,
       label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
@@ -904,7 +954,7 @@ function normalizeConferenceAnswers(payload) {
 }
 
 function conferenceQuestionRound(payload) {
-  return Math.max(1, Math.min(2, Number(payload?.questionRound || payload?.pendingReconference?.round || payload?.reconferenceCount || 1) || 1));
+  return Math.max(1, Number(payload?.questionRound || payload?.pendingReconference?.round || payload?.reconferenceCount || 1) || 1);
 }
 
 function renderFiledReconferenceHistory(payload, mode = "questions") {
@@ -1118,7 +1168,7 @@ function showReconferenceQuestionsState(payload) {
   if (reconferenceNote) reconferenceNote.disabled = false;
   if (updatedConference) {
     updatedConference.disabled = false;
-    updatedConference.textContent = round >= 2 ? "Submit Second-Round Answers" : "Submit Answers to the Writers";
+    updatedConference.textContent = "Submit Answers to the Writers";
   }
 }
 
@@ -1143,8 +1193,8 @@ function showReconferenceUnderReviewState(payload) {
     if (updatedConference) {
       updatedConference.disabled = remaining > 0;
       updatedConference.textContent = remaining > 0
-        ? "Writers Reviewing Repairs"
-        : (round >= 2 ? "Open Final Conference" : "Open Updated Conference");
+        ? "Writers Reviewing Development Notes"
+        : "Open Updated Conference";
     }
     if (remaining <= 0) {
       clearInterval(reconferenceInterval);
@@ -1171,17 +1221,21 @@ function applyConferenceVerdicts(payload) {
       initials: writer.initials || fallback.initials || "S.D.",
       next: nextWriter ? `Consult with ${nextWriter.title || "the next photoplaywright"} ->` : "Convene the Conference ->",
       title: writer.title || fallback.title || "Scenario Department Photoplaywright",
-      role: writer.role || fallback.role || "Photoplay Conference Verdict",
-      body: writer.body || writer.verdict || fallback.body || "The photoplaywright has filed a memorandum for conference."
+      role: writer.role || fallback.role || "Photoplay Development Department",
+      body: [
+        writer.body || writer.verdict || fallback.body || "The photoplaywright has filed development feedback.",
+        writer.suggestions ? `<strong>Suggested development:</strong> ${writer.suggestions}` : "",
+        writer.unresolvedConcerns ? `<strong>Still to settle:</strong> ${writer.unresolvedConcerns}` : ""
+      ].filter(Boolean).join("<br><br>")
     };
   });
 
-  if (payload.decision || payload.finalDecision) {
-    activeConferenceDecision = normalizeConferenceDecision(payload.decision || payload.finalDecision);
+  if (payload.developmentStatus || payload.decision || payload.finalDecision) {
+    activeConferenceDecision = normalizeConferenceDecision(payload.developmentStatus || payload.decision || payload.finalDecision);
   }
 
   if (payload.quote && executiveVerdicts[activeConferenceDecision]) {
-    executiveVerdicts[activeConferenceDecision].quote = payload.quote;
+    executiveVerdicts[activeConferenceDecision].quote = payload.pauseExplanation || payload.readinessSummary || payload.quote;
   }
 
   if (activeConferenceDecision === "reconference") {
@@ -1318,8 +1372,8 @@ function showConferenceSelectionPrompt(message = "Replies have arrived. Consult 
   if (!readerVerdict) return;
   readerVerdict.dataset.hasSelection = "false";
   readerVerdict.innerHTML = `
-    <p class="eyebrow">Writers' Verdicts</p>
-    <h3>Photoplaywright memoranda on file</h3>
+    <p class="eyebrow">Writers' Development Notes</p>
+    <h3>Photoplaywright guidance on file</h3>
     <p>${escapeHtml(message)}</p>
   `;
 }
@@ -1332,7 +1386,7 @@ function renderPhotoplaywright(index) {
   readerVerdict.dataset.hasSelection = "true";
   conferenceHeading.textContent = "Interested photoplaywrights have replied.";
   readerVerdict.innerHTML = `
-    <p class="eyebrow">The Writers' Verdicts</p>
+    <p class="eyebrow">Photoplaywright Development Notes</p>
     <div class="verdict-card">
       <span class="verdict-card__seal">${verdict.initials}</span>
       <div>
@@ -1346,16 +1400,9 @@ function renderPhotoplaywright(index) {
 }
 
 function decideExecutiveVerdict() {
-  if (activePropertyKey === "cathedral-clock") {
-    if (reconferenceCount >= 2) return "wastebasket";
-    return "reconference";
-  }
-
+  if (activePropertyKey === "cathedral-clock") return "reconference";
   if (activePropertyKey === "glass-duchess") return "reconference";
-  if (/^SPC-/i.test(activePropertyKey)) {
-    if (activeConferenceDecision === "reconference" && reconferenceCount >= 2) return "wastebasket";
-    return activeConferenceDecision;
-  }
+  if (/^SPC-/i.test(activePropertyKey)) return activeConferenceDecision;
   return "treatments";
 }
 
@@ -1375,8 +1422,8 @@ function showExecutiveVerdict(kind) {
   finalAction.href = actionHref;
   finalEvaluation.hidden = false;
   if (conferenceHeading) {
-    conferenceHeading.textContent = kind === "wastebasket"
-      ? "The conference has exhausted the material."
+    conferenceHeading.textContent = kind === "paused"
+      ? "Development is paused pending additional source material."
       : "The conference has convened.";
   }
   finalEvaluation.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1388,29 +1435,9 @@ function startReconferenceClock() {
   let remaining = 36;
   reconferenceFeedback.hidden = true;
   renderReconferenceQuestions(activeConferencePayload);
-  if (reconferenceCount >= 2) {
-    if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "Final Moral Repair ";
-    if (labelRomance) labelRomance.childNodes[0].textContent = "Final Human Tie or Romance Repair ";
-    if (labelSpectacle) labelSpectacle.childNodes[0].textContent = "Final Visual Climax Repair ";
-    reconferenceFeedback.innerHTML = `
-      <div>
-        <h3>Marchmont's Final Demand</h3>
-        <p>The mechanism must produce an unavoidable final action. No further explanation will rescue the structure.</p>
-      </div>
-      <div>
-        <h3>Carrington's Final Demand</h3>
-        <p>The father's guilt must be answered by Elsa in public and at cost. Private sorrow is insufficient.</p>
-      </div>
-      <div>
-        <h3>Thorncroft's Final Demand</h3>
-        <p>The climax must exact payment: name, office, love, inheritance, safety, or freedom.</p>
-      </div>
-    `;
-  } else {
-    if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "New Moral Pressure ";
-    if (labelRomance) labelRomance.childNodes[0].textContent = "Stronger Romance or Human Tie ";
-    if (labelSpectacle) labelSpectacle.childNodes[0].textContent = "New Spectacle or Visual Sequence ";
-  }
+  if (labelMoralPressure) labelMoralPressure.childNodes[0].textContent = "New Moral Pressure ";
+  if (labelRomance) labelRomance.childNodes[0].textContent = "Stronger Romance or Human Tie ";
+  if (labelSpectacle) labelSpectacle.childNodes[0].textContent = "New Spectacle or Visual Sequence ";
   if (updatedConference) {
     updatedConference.disabled = true;
     updatedConference.textContent = "Awaiting Photoplaywright Notes";
@@ -1639,7 +1666,7 @@ if (sendLetter && readerRoster && readerVerdict) {
       writerCallboard.innerHTML = "";
     }
     readerVerdict.innerHTML = `
-      <p class="eyebrow">Writers' Verdicts</p>
+      <p class="eyebrow">Writers' Development Notes</p>
       <h3>Conference letter delivered</h3>
       <p>The letter has gone to the photoplaywrights. Replies are expected within <strong>36 studio hours</strong>.</p>
     `;
@@ -1649,7 +1676,7 @@ if (sendLetter && readerRoster && readerVerdict) {
 
     if (/^SPC-/i.test(activePropertyKey)) {
       readerVerdict.innerHTML = `
-        <p class="eyebrow">Writers' Verdicts</p>
+        <p class="eyebrow">Writers' Development Notes</p>
         <h3>The conference letter is being answered.</h3>
         <p>The interested photoplaywrights are reading the filed synopsis and preparing property-specific memoranda.</p>
       `;
@@ -1665,7 +1692,7 @@ if (sendLetter && readerRoster && readerVerdict) {
         }
       } catch (error) {
         readerVerdict.innerHTML = `
-          <p class="eyebrow">Writers' Verdicts</p>
+          <p class="eyebrow">Writers' Development Notes</p>
           <h3>The conference clerk could not reach the upstairs line.</h3>
           <p>The room will proceed with its standing departmental notes until the live conference action is installed.</p>
         `;
@@ -1727,7 +1754,7 @@ if (updatedConference) {
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
         if (payload.reviewStatus === "under_review") {
-          showConferenceSelectionPrompt("The writers have accepted the additional material and retired to review it. The updated verdict will open when the clock expires.");
+          showConferenceSelectionPrompt("The writers have accepted the additional material and retired to study it. Their updated development notes will open when the clock expires.");
         } else {
           renderWriterCallboard();
           showConferenceSelectionPrompt("The updated conference has filed a new packet. Consult with any photoplaywright below to review the memoranda.");
@@ -1737,8 +1764,8 @@ if (updatedConference) {
         if (readerVerdict) {
           const detail = error && error.message ? error.message : "No detailed error was returned.";
           readerVerdict.innerHTML = `
-            <p class="eyebrow">Updated Writers' Verdicts</p>
-            <h3>The reconference clerk could not file the repair pass.</h3>
+            <p class="eyebrow">Updated Writers' Development Notes</p>
+            <h3>The conference clerk could not file the development pass.</h3>
             <p>The new material remains on the table. ${escapeHtml(detail)}</p>
           `;
         }
@@ -1748,14 +1775,9 @@ if (updatedConference) {
       return;
     }
 
-    if (reconferenceCount >= 2) {
-      showExecutiveVerdict("wastebasket");
-      return;
-    }
-
     if (readerVerdict) {
       readerVerdict.innerHTML = `
-        <p class="eyebrow">Updated Writers' Verdicts</p>
+        <p class="eyebrow">Updated Writers' Development Notes</p>
         <div class="verdict-card">
           <span class="verdict-card__seal">J.M.</span>
           <div>
@@ -1767,7 +1789,7 @@ if (updatedConference) {
       `;
     }
 
-    showExecutiveVerdict(decideExecutiveVerdict());
+    showExecutiveVerdict("reconference");
   });
 }
 
