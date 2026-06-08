@@ -2334,3 +2334,135 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.development-workflow {
+  padding: clamp(1rem, 3vw, 2rem);
+  border-top: 3px solid #b98308;
+  border-bottom: 3px solid #b98308;
+  background: #fbf7ed;
+}
+
+.development-rail,
+.development-blueprint {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .7rem;
+  margin: 1.2rem 0;
+}
+
+.development-rail__stage {
+  display: grid;
+  grid-template-columns: 2.1rem 1fr;
+  gap: .1rem .65rem;
+  min-height: 72px;
+  padding: .7rem;
+  text-align: left;
+  color: #4e2a15;
+  background: #f4ecda;
+  border: 1px solid rgba(126, 72, 25, .35);
+  border-radius: 0;
+}
+
+.development-rail__stage span {
+  grid-row: 1 / 3;
+  align-self: center;
+  color: #a56c00;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 900;
+}
+
+.development-rail__stage strong,
+.development-rail__stage small {
+  display: block;
+}
+
+.development-rail__stage small {
+  color: #8b5e2e;
+  font-family: "Special Elite", monospace;
+}
+
+.development-rail__stage.is-active {
+  color: #fff8df;
+  background: #713b17;
+  border-color: #c99108;
+  box-shadow: inset 0 0 0 2px rgba(201, 145, 8, .28);
+}
+
+.development-rail__stage.is-active small,
+.development-rail__stage.is-active span {
+  color: #f0c254;
+}
+
+.development-rail__stage.is-complete {
+  cursor: pointer;
+  background: #fffaf0;
+  border-color: #a67616;
+}
+
+.development-rail__stage.is-provisional {
+  background: #eee4ce;
+  border-style: dashed;
+}
+
+.development-blueprint article,
+.development-stage-record,
+.legacy-conference-notes {
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(126, 72, 25, .28);
+}
+
+.development-blueprint span {
+  color: #a36a00;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.development-blueprint p,
+.development-stage-record p {
+  margin-bottom: 0;
+}
+
+.development-stage-records {
+  display: grid;
+  gap: .75rem;
+}
+
+.development-stage-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.development-stage-record h3 {
+  margin: .15rem 0 .35rem;
+}
+
+.legacy-conference-notes {
+  margin-top: 1rem;
+  border-style: dashed;
+}
+
+#review-calculation {
+  display: block;
+  max-width: 34rem;
+  margin-top: .35rem;
+  color: #84552b;
+  font-family: "Special Elite", monospace;
+  line-height: 1.4;
+}
+
+@media (max-width: 850px) {
+  .development-rail,
+  .development-blueprint {
+    grid-template-columns: 1fr;
+  }
+
+  .development-stage-record {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

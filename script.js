@@ -276,7 +276,7 @@ function isExecutiveRewriteProperty(property) {
 
 function isWritersRoomSelectorProperty(property) {
   const status = lowerText(property && property.status);
-  return /needs reader|conference ready|needs conference|needs development|development under review|development paused/.test(status) || isConferenceRepairProperty(property);
+  return /needs reader|conference ready|needs conference|needs development|development questions filed|development under review/.test(status) || isConferenceRepairProperty(property);
 }
 
 function canOpenInWritersRoom(property) {
@@ -767,10 +767,10 @@ const executiveVerdicts = {
   },
   reconference: {
     type: "reconference",
-    stamp: "Continue Development",
+    stamp: "Development in Progress",
     className: "final-stamp final-stamp--reconference",
-    quote: "The picture is taking shape. Let us settle the remaining story choices before the treatment is written.",
-    action: "Continue the Conference",
+    quote: "The photoplay blueprint is taking shape. Complete the active development stage before moving forward.",
+    action: "Open Development Docket",
     href: "#reconference-workshop"
   },
   paused: {
@@ -881,13 +881,125 @@ function parseSavedConference(property) {
 
 function normalizeConferenceDecision(value) {
   const cleaned = String(value || "").toLowerCase();
-  if (cleaned.includes("pause") || cleaned.includes("waste")) return "paused";
-  if (cleaned.includes("continue") || cleaned.includes("reconference") || cleaned.includes("rewrite") || cleaned.includes("repair")) return "reconference";
+  if (cleaned.includes("ready") || cleaned.includes("treatment")) return "treatments";
+  if (cleaned.includes("continue") || cleaned.includes("development") || cleaned.includes("reconference") || cleaned.includes("rewrite") || cleaned.includes("repair")) return "reconference";
   return "treatments";
 }
 
+const stagedDevelopmentNames = [
+  "Property Examination",
+  "Theme Determination",
+  "Character Test",
+  "Situation Test",
+  "Plot of Action",
+  "Synopsis",
+  "Scenario Department Conference",
+  "Adaptation Analysis",
+  "Scenario Sequences"
+];
+
+function isStagedDevelopmentPacket(payload) {
+  return Number(payload?.workflowVersion) >= 2 && payload?.stagePackets && typeof payload.stagePackets === "object";
+}
+
+function developmentStageKey(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function activeDevelopmentStagePacket(payload) {
+  if (!isStagedDevelopmentPacket(payload) || !payload.activeStage) return {};
+  return payload.stagePackets[developmentStageKey(payload.activeStage)] || {};
+}
+
+function renderStagedDevelopment(payload) {
+  if (!isStagedDevelopmentPacket(payload)) return;
+  const workflow = document.querySelector("#development-workflow");
+  const rail = document.querySelector("#development-rail");
+  const title = document.querySelector("#development-stage-title");
+  const summary = document.querySelector("#development-stage-summary");
+  const blueprint = document.querySelector("#development-blueprint");
+  const records = document.querySelector("#development-stage-records");
+  const legacy = document.querySelector("#legacy-conference-notes");
+  if (!workflow || !rail || !title || !summary || !blueprint || !records) return;
+
+  const completed = new Set(payload.completedStages || []);
+  const provisional = new Set(payload.provisionalStages || []);
+  const active = payload.activeStage || "";
+  const activePacket = activeDevelopmentStagePacket(payload);
+  workflow.hidden = false;
+  title.textContent = active || "Development Blueprint Complete";
+  summary.textContent = activePacket.completionSummary || payload.readinessSummary || payload.quote || "The writers are shaping the active stage.";
+
+  rail.innerHTML = stagedDevelopmentNames.map((stage, index) => {
+    const state = completed.has(stage) ? "is-complete" : provisional.has(stage) ? "is-provisional" : stage === active ? "is-active" : "is-upcoming";
+    const label = completed.has(stage) ? "Filed" : provisional.has(stage) ? "Provisional" : stage === active ? "At Desk" : "Upcoming";
+    return `<button type="button" class="development-rail__stage ${state}" data-development-stage="${escapeHtml(stage)}" ${completed.has(stage) ? "" : "disabled"}>
+      <span>${String(index + 1).padStart(2, "0")}</span>
+      <strong>${escapeHtml(stage)}</strong>
+      <small>${label}</small>
+    </button>`;
+  }).join("");
+
+  const anchorLabels = {
+    dramaticPromise: "Dramatic Promise",
+    centralWound: "Central Wound",
+    theme: "Theme",
+    opposingForce: "Opposing Force",
+    spectacle: "Spectacle",
+    emotionalPayoff: "Emotional Payoff"
+  };
+  blueprint.innerHTML = Object.entries(anchorLabels).map(([key, label]) => `
+    <article>
+      <span>${escapeHtml(label)}</span>
+      <p>${escapeHtml(payload.developmentBlueprint?.[key] || "Still being determined.")}</p>
+    </article>
+  `).join("");
+
+  records.innerHTML = (payload.completedStages || []).map((stage) => {
+    const packet = payload.stagePackets[developmentStageKey(stage)] || {};
+    return `<article class="development-stage-record">
+      <div>
+        <p class="eyebrow">Filed Development Stage</p>
+        <h3>${escapeHtml(stage)}</h3>
+        <p>${escapeHtml(packet.completionSummary || "This stage has been filed in the development blueprint.")}</p>
+        ${Array.isArray(packet.adaptationLenses) && packet.adaptationLenses.length
+          ? `<p><strong>Studio-inspired adaptation lenses:</strong> ${packet.adaptationLenses.map((lens) => escapeHtml(lens)).join(" ")}</p>`
+          : ""}
+      </div>
+      <button type="button" class="button button--small" data-reopen-development-stage="${escapeHtml(stage)}">Reopen This Stage</button>
+    </article>`;
+  }).join("");
+
+  records.querySelectorAll("[data-reopen-development-stage]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const stageName = button.dataset.reopenDevelopmentStage;
+      if (!window.confirm(`Reopen ${stageName}? Later development stages will become provisional until the writers review the consequences.`)) return;
+      button.disabled = true;
+      button.textContent = "Reopening Stage";
+      try {
+        const reopened = await requestConferenceVerdicts({ action: "reopenStage", stageName });
+        if (!applyConferenceVerdicts(reopened)) throw new Error(reopened?.error || "The stage could not be reopened.");
+        showExecutiveVerdict("reconference");
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = "Reopen This Stage";
+      }
+    });
+  });
+
+  if (legacy && payload.legacyConferenceNotes) {
+    legacy.hidden = false;
+    legacy.innerHTML = `
+      <p class="eyebrow">Preliminary Conference Notes Preserved</p>
+      <p>Earlier conference material remains filed as source notes. The staged development blueprint is now the authoritative Writers' Room record.</p>
+    `;
+  } else if (legacy) {
+    legacy.hidden = true;
+  }
+}
+
 function normalizeConferenceQuestions(payload) {
-  const pendingQuestions = payload?.pendingReconference?.questions;
+  const pendingQuestions = payload?.pendingReview?.questions || payload?.pendingReconference?.questions;
   const questions = Array.isArray(pendingQuestions) && pendingQuestions.length
     ? pendingQuestions
     : Array.isArray(payload && payload.reconferenceQuestions)
@@ -899,7 +1011,8 @@ function normalizeConferenceQuestions(payload) {
       id: item.id || `repair_${index + 1}`,
       label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
-      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference..."
+      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference...",
+      sourceConcernIds: item.sourceConcernIds || []
     }));
   }
 
@@ -926,6 +1039,16 @@ function normalizeConferenceQuestions(payload) {
 }
 
 function normalizeCurrentConferenceQuestions(payload) {
+  const stagedDocket = activeDevelopmentStagePacket(payload)?.docket;
+  if (Array.isArray(stagedDocket) && stagedDocket.length) {
+    return stagedDocket.map((item, index) => ({
+      id: item.id || `development_${index + 1}`,
+      label: item.label || `Development Question ${String(index + 1).padStart(2, "0")}`,
+      prompt: item.prompt || item.question || "Settle this development decision.",
+      placeholder: item.placeholder || "Describe the screen decision the writers should carry forward.",
+      sourceConcernIds: item.sourceConcernIds || []
+    }));
+  }
   const questions = Array.isArray(payload && payload.reconferenceQuestions)
     ? payload.reconferenceQuestions
     : [];
@@ -935,7 +1058,8 @@ function normalizeCurrentConferenceQuestions(payload) {
       id: item.id || `repair_${index + 1}`,
       label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
-      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference..."
+      placeholder: item.placeholder || "Enter the new dramatic material for the updated conference...",
+      sourceConcernIds: item.sourceConcernIds || []
     }));
   }
 
@@ -943,7 +1067,7 @@ function normalizeCurrentConferenceQuestions(payload) {
 }
 
 function normalizeConferenceAnswers(payload) {
-  const raw = payload?.pendingReconference?.answers || payload?.reconferenceAnswers;
+  const raw = payload?.pendingReview?.answers || payload?.pendingReconference?.answers || payload?.reconferenceAnswers;
   if (!raw) return {};
   if (!Array.isArray(raw) && typeof raw === "object") return raw;
   if (!Array.isArray(raw)) return {};
@@ -980,6 +1104,39 @@ function conferenceQuestionRound(payload) {
 
 function renderFiledReconferenceHistory(payload, mode = "questions") {
   if (!reconferenceFeedback) return;
+  if (isStagedDevelopmentPacket(payload)) {
+    const history = Array.isArray(payload.developmentHistory) ? payload.developmentHistory : [];
+    const pending = payload.pendingReview;
+    const blocks = history.map((entry) => {
+      const questions = Array.isArray(entry.questions) ? entry.questions : [];
+      const answers = Array.isArray(entry.answers)
+        ? Object.fromEntries(entry.answers.map((answer) => [answer.id, answer.answer || ""]))
+        : (entry.answers || {});
+      return `<div>
+        <h3>${escapeHtml(entry.stageName || "Development Stage")} - Answers Filed</h3>
+        ${questions.map((question) => `
+          <article class="analysis-card">
+            <h3>${escapeHtml(question.label || question.id || "Development Question")}</h3>
+            <p>${escapeHtml(question.prompt || "")}</p>
+            <blockquote>${escapeHtml(answers[question.id] || "No answer was filed.")}</blockquote>
+          </article>
+        `).join("")}
+        ${entry.note ? `<p><strong>Additional material:</strong> ${escapeHtml(entry.note)}</p>` : ""}
+      </div>`;
+    });
+    if (mode === "under_review" && pending) {
+      blocks.push(`<div>
+        <h3>${escapeHtml(pending.stageName || payload.activeStage)} - Answers Filed</h3>
+        <p>The writers have the submitted screen decisions. No updated judgment has been written yet.</p>
+      </div>`);
+    }
+    if (!blocks.length) {
+      blocks.push(`<div><h3>${escapeHtml(payload.activeStage || "Development Docket")}</h3><p>Marchmont has consolidated the unresolved points from the writers' memoranda below.</p></div>`);
+    }
+    reconferenceFeedback.hidden = false;
+    reconferenceFeedback.innerHTML = blocks.join("");
+    return;
+  }
   const history = Array.isArray(payload?.reconferenceHistory) ? payload.reconferenceHistory : [];
   const pending = payload?.pendingReconference;
   const blocks = [];
@@ -1038,6 +1195,9 @@ function renderReconferenceQuestions(payload) {
     <label>
       ${escapeHtml(question.label)}
       <p>${escapeHtml(question.prompt)}</p>
+      ${Array.isArray(question.sourceConcernIds) && question.sourceConcernIds.length
+        ? `<small>Drawn from concerns: ${question.sourceConcernIds.map((id) => escapeHtml(id)).join(", ")}</small>`
+        : ""}
       <textarea data-reconference-question-id="${escapeHtml(question.id)}" placeholder="${escapeHtml(question.placeholder)}">${escapeHtml(answers[question.id] || "")}</textarea>
     </label>
   `).join("");
@@ -1153,7 +1313,8 @@ async function postConferenceRepairAnswers(reconferenceNotes) {
 }
 
 function reviewDueDate(payload) {
-  const due = payload && payload.reviewDueAt ? new Date(payload.reviewDueAt) : null;
+  const dueValue = payload?.pendingReview?.reviewDueAt || payload?.reviewDueAt;
+  const due = dueValue ? new Date(dueValue) : null;
   return due && !Number.isNaN(due.getTime()) ? due : null;
 }
 
@@ -1172,16 +1333,19 @@ function formatReviewRemaining(ms) {
 function showReconferenceQuestionsState(payload) {
   if (!reconferenceWorkshop) return;
   clearInterval(reconferenceInterval);
-  const round = conferenceQuestionRound(payload);
   reconferenceWorkshop.hidden = false;
   const heading = reconferenceWorkshop.querySelector("h2");
-  if (heading) heading.textContent = `Development Questions: Round ${round}`;
+  if (heading) heading.textContent = isStagedDevelopmentPacket(payload)
+    ? `${payload.activeStage || "Development"} Docket`
+    : `Development Questions: Round ${conferenceQuestionRound(payload)}`;
   renderFiledReconferenceHistory(payload, "questions");
   if (reconferenceTimer) {
-    reconferenceTimer.textContent = `${String(payload?.reviewHours || 72).padStart(2, "0")}:00`;
+    reconferenceTimer.textContent = `${String(payload?.reviewMinutes || 0).padStart(2, "0")}:00`;
     const timerPanel = reconferenceTimer.closest(".countdown");
     if (timerPanel) timerPanel.hidden = true;
   }
+  const calculation = document.querySelector("#review-calculation");
+  if (calculation) calculation.textContent = payload?.reviewCalculation || "12 minutes per filed question, plus a visible complexity allowance.";
   renderReconferenceQuestions(payload);
   document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
     node.disabled = false;
@@ -1195,10 +1359,11 @@ function showReconferenceQuestionsState(payload) {
 
 function showReconferenceUnderReviewState(payload) {
   if (!reconferenceWorkshop || !reconferenceTimer) return;
-  const round = conferenceQuestionRound(payload);
   reconferenceWorkshop.hidden = false;
   const heading = reconferenceWorkshop.querySelector("h2");
-  if (heading) heading.textContent = `Answers Filed: Round ${round}`;
+  if (heading) heading.textContent = isStagedDevelopmentPacket(payload)
+    ? `${payload.activeStage || payload.pendingReview?.stageName || "Development"} Answers Filed`
+    : `Answers Filed: Round ${conferenceQuestionRound(payload)}`;
   const timerPanel = reconferenceTimer.closest(".countdown");
   if (timerPanel) timerPanel.hidden = false;
   renderFiledReconferenceHistory(payload, "under_review");
@@ -1207,6 +1372,8 @@ function showReconferenceUnderReviewState(payload) {
     node.disabled = true;
   });
   if (reconferenceNote) reconferenceNote.disabled = true;
+  const calculation = document.querySelector("#review-calculation");
+  if (calculation) calculation.textContent = payload?.reviewCalculation || payload?.pendingReview?.timing?.explanation || "";
 
   const tick = () => {
     const remaining = reviewRemainingMs(payload);
@@ -1228,7 +1395,9 @@ function showReconferenceUnderReviewState(payload) {
 }
 
 function applyConferenceVerdicts(payload) {
-  if (!payload || !payload.ok || !Array.isArray(payload.writers) || !payload.writers.length) return false;
+  if (!payload || !payload.ok) return false;
+  if (isStagedDevelopmentPacket(payload)) renderStagedDevelopment(payload);
+  if (!Array.isArray(payload.writers)) payload.writers = [];
 
   activeConferencePayload = payload;
   reconferenceCount = normalizeReconferenceCount(payload, reconferenceCount);
@@ -1246,12 +1415,22 @@ function applyConferenceVerdicts(payload) {
       body: [
         writer.body || writer.verdict || fallback.body || "The photoplaywright has filed development feedback.",
         writer.suggestions ? `<strong>Suggested development:</strong> ${writer.suggestions}` : "",
-        writer.unresolvedConcerns ? `<strong>Still to settle:</strong> ${writer.unresolvedConcerns}` : ""
+        writer.unresolvedConcerns ? `<strong>Still to settle:</strong> ${writer.unresolvedConcerns}` : "",
+        Array.isArray(writer.concernIds) && writer.concernIds.length
+          ? `<strong>Concern references:</strong> ${writer.concernIds.map((id) => escapeHtml(id)).join(", ")}`
+          : "",
+        Array.isArray(writer.proposedQuestions) && writer.proposedQuestions.length
+          ? `<strong>Questions proposed for Marchmont's docket:</strong> ${writer.proposedQuestions.map((question) => escapeHtml(question.prompt || "")).join(" ")}`
+          : ""
       ].filter(Boolean).join("<br><br>")
     };
   });
 
-  if (payload.developmentStatus || payload.decision || payload.finalDecision) {
+  if (payload.statusLabel === "Treatment Ready") {
+    activeConferenceDecision = "treatments";
+  } else if (isStagedDevelopmentPacket(payload)) {
+    activeConferenceDecision = "reconference";
+  } else if (payload.developmentStatus || payload.decision || payload.finalDecision) {
     activeConferenceDecision = normalizeConferenceDecision(payload.developmentStatus || payload.decision || payload.finalDecision);
   }
 
@@ -1259,12 +1438,14 @@ function applyConferenceVerdicts(payload) {
     executiveVerdicts[activeConferenceDecision].quote = payload.pauseExplanation || payload.readinessSummary || payload.quote;
   }
 
-  if (activeConferenceDecision === "reconference") {
+  if (activeConferenceDecision === "reconference" && normalizeCurrentConferenceQuestions(payload).length) {
     if (payload.reviewStatus === "under_review") {
       showReconferenceUnderReviewState(payload);
     } else {
       showReconferenceQuestionsState(payload);
     }
+  } else if (reconferenceWorkshop) {
+    reconferenceWorkshop.hidden = true;
   }
 
   return true;
@@ -1273,11 +1454,27 @@ function applyConferenceVerdicts(payload) {
 function renderSavedConferenceState(property) {
   if (!activePropertyKey || !/^SPC-/i.test(activePropertyKey)) return false;
   const saved = parseSavedConference(property);
-  if (!saved || !applyConferenceVerdicts(saved)) return false;
+  if (!saved) return false;
+  if (!isStagedDevelopmentPacket(saved)) {
+    if (readerVerdict) {
+      readerVerdict.innerHTML = `
+        <p class="eyebrow">Preliminary Conference Notes Preserved</p>
+        <h3>The property is ready for the new staged examination.</h3>
+        <p>Earlier conference memoranda will be retained as source notes when the development file is opened.</p>
+      `;
+    }
+    if (conferenceHeading) conferenceHeading.textContent = "Awaiting staged Property Examination.";
+    if (sendLetter) {
+      sendLetter.textContent = "Begin Property Examination";
+      sendLetter.disabled = false;
+    }
+    return false;
+  }
+  if (!applyConferenceVerdicts(saved)) return false;
 
   readerRoster?.classList.remove("is-locked");
   if (sendLetter) {
-    sendLetter.textContent = "Conference Packet Filed";
+    sendLetter.textContent = "Development File Open";
     sendLetter.disabled = true;
   }
 
@@ -1288,7 +1485,7 @@ function renderSavedConferenceState(property) {
     if (finalEvaluation) finalEvaluation.hidden = true;
     showReconferenceUnderReviewState(saved);
   } else {
-    showConferenceSelectionPrompt("This conference packet has already been filed. Consult with any photoplaywright below to review the memoranda again.");
+    showConferenceSelectionPrompt("This development file is open. Consult with any photoplaywright below to review the active-stage memoranda.");
     showExecutiveVerdict(decideExecutiveVerdict());
   }
 
@@ -1443,9 +1640,9 @@ function showExecutiveVerdict(kind) {
   finalAction.href = actionHref;
   finalEvaluation.hidden = false;
   if (conferenceHeading) {
-    conferenceHeading.textContent = kind === "paused"
-      ? "Development is paused pending additional source material."
-      : "The conference has convened.";
+    conferenceHeading.textContent = kind === "treatments"
+      ? "The photoplay blueprint is complete."
+      : "The writers are developing the active stage.";
   }
   finalEvaluation.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -1688,11 +1885,11 @@ if (sendLetter && readerRoster && readerVerdict) {
     }
     readerVerdict.innerHTML = `
       <p class="eyebrow">Writers' Development Notes</p>
-      <h3>Conference letter delivered</h3>
-      <p>The letter has gone to the photoplaywrights. Replies are expected within <strong>36 studio hours</strong>.</p>
+      <h3>The development file is open.</h3>
+      <p>The photoplaywrights are examining the raw material and preparing the first stage of the screen blueprint.</p>
     `;
-    if (conferenceHeading) conferenceHeading.textContent = "Conference letters are out.";
-    sendLetter.textContent = "Conference Letter Sent";
+    if (conferenceHeading) conferenceHeading.textContent = "The property is before the writing staff.";
+    sendLetter.textContent = "Development File Open";
     sendLetter.disabled = true;
 
     if (/^SPC-/i.test(activePropertyKey)) {
@@ -1705,9 +1902,9 @@ if (sendLetter && readerRoster && readerVerdict) {
       try {
         const payload = await requestConferenceVerdicts();
         if (applyConferenceVerdicts(payload)) {
-          if (conferenceHeading) conferenceHeading.textContent = "Photoplaywright replies received.";
+          if (conferenceHeading) conferenceHeading.textContent = "Active-stage memoranda received.";
           renderWriterCallboard();
-          showConferenceSelectionPrompt();
+          showConferenceSelectionPrompt("The active-stage memoranda are filed. Consult with a photoplaywright, then answer Marchmont's development docket.");
           showExecutiveVerdict(decideExecutiveVerdict());
           return;
         }
@@ -1771,6 +1968,7 @@ if (updatedConference) {
           questions,
           answers: collectReconferenceAnswers(),
           note: collectReconferenceNote(),
+          activeStage: activeConferencePayload?.activeStage || "",
           questionRound: round,
           reconferenceCount: Math.max(round, reconferenceCount + 1)
         });

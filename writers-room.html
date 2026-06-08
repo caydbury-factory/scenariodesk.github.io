@@ -110,12 +110,24 @@
           </article>
         </section>
 
+        <section class="development-workflow" id="development-workflow" hidden>
+          <div class="section-head">
+            <p class="eyebrow">Photoplay Development Workflow</p>
+            <h2 id="development-stage-title">Property Examination</h2>
+            <p id="development-stage-summary">The writers are examining the raw material for its screen promise.</p>
+          </div>
+          <div class="development-rail" id="development-rail" aria-label="Photoplay development stages"></div>
+          <div class="development-blueprint" id="development-blueprint"></div>
+          <div class="development-stage-records" id="development-stage-records"></div>
+          <div class="legacy-conference-notes" id="legacy-conference-notes" hidden></div>
+        </section>
+
         <section class="conference-letter" aria-labelledby="letter-title">
           <div class="letter-envelope">
-            <p class="eyebrow">Conference Letter</p>
-            <h2 id="letter-title">Invite the photoplaywrights into conference.</h2>
-            <p>One letter goes out to the writing staff. Interested photoplaywrights reply with practical development guidance, story suggestions, and specific Photoplay Rule questions. The writers advise and strengthen the property; they do not reject it.</p>
-            <button type="button" id="send-letter">Send Conference Letter</button>
+            <p class="eyebrow">Open the Development File</p>
+            <h2 id="letter-title">Put the property before the photoplaywrights.</h2>
+            <p>The writing staff will reshape the source material into a workable screen blueprint, one dramatic stage at a time. Their business is development; Carstairs alone decides production.</p>
+            <button type="button" id="send-letter">Begin Property Examination</button>
           </div>
         </section>
 
@@ -131,7 +143,7 @@
           </article>
           <div class="writer-callboard" id="writer-callboard" hidden></div>
           <article class="final-evaluation" id="final-evaluation" hidden>
-            <p class="eyebrow">Development Routing - Prepared by the Writers' Room</p>
+            <p class="eyebrow">Development Filing - Prepared by the Writers' Room</p>
             <p class="final-stamp final-stamp--treatments" id="final-stamp">Ready for Treatment</p>
             <blockquote id="final-quote">This has a heart, a wound, and a house big enough to echo with both. Send it upstairs.</blockquote>
             <cite>- Miss Jeanette Marchmont, Chief of the Writing Room</cite>
@@ -139,19 +151,14 @@
           </article>
 
           <article class="reconference-workshop" id="reconference-workshop" hidden>
-            <p class="eyebrow">Reconference Order</p>
-            <h2>Development Questions from the Writers</h2>
-            <p>The photoplaywrights have found promise in the material. They are identifying what to preserve and what to strengthen before the next development review begins.</p>
-
-            <div class="review-estimates" id="review-estimates">
-              <div><strong>Miss Marchmont</strong><span>36 studio hours</span></div>
-              <div><strong>Mr. Carrington</strong><span>48 studio hours</span></div>
-              <div><strong>Miss Thorncroft</strong><span>72 studio hours</span></div>
-            </div>
+            <p class="eyebrow">Marchmont's Development Docket</p>
+            <h2>Questions Required to Complete This Stage</h2>
+            <p>These questions arise directly from the photoplaywright memoranda. Answer them as screen decisions; the writers will use the filed material to build the next portion of the photoplay.</p>
 
             <div class="countdown countdown--reconference">
-              <span>Reconference Review Remaining</span>
+              <span>Development Review Remaining</span>
               <strong id="reconference-timer">36:00</strong>
+              <small id="review-calculation"></small>
             </div>
 
             <div class="reconference-feedback" id="reconference-feedback" hidden>
@@ -172,9 +179,9 @@
             <form class="reconference-form">
               <div id="reconference-questions"></div>
               <label>
-                Additional material for the conference
-                <p>Optional: add any broader repair note, production angle, character clarification, or dramatic promise the writers should consider.</p>
-                <textarea id="reconference-note" placeholder="Add any general note for the reconvened writers..."></textarea>
+                Additional material for the writers
+                <p>Optional: add a broader adaptation choice, production angle, character clarification, or visual promise.</p>
+                <textarea id="reconference-note" placeholder="Add any general development note for the writers..."></textarea>
               </label>
               <button type="button" id="updated-conference">Submit Answers to the Writers</button>
             </form>
@@ -184,31 +191,6 @@
     </main>
     <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
     <script src="script.js"></script>
-    <script>
-      (() => {
-        const room = document.querySelector("#reader-roster");
-        const stamp = document.querySelector("#final-stamp");
-        const quote = document.querySelector("#final-quote");
-        const action = document.querySelector("#final-action");
-        const workshop = document.querySelector("#reconference-workshop");
-        const forbiddenDecision = /wastebasket|reject(?:ed|ion)?/i;
-
-        function enforceWritersRoomAuthority() {
-          if (!stamp || !forbiddenDecision.test(stamp.textContent || "")) return;
-          stamp.textContent = "More Development";
-          stamp.className = "final-stamp final-stamp--reconference";
-          if (quote) quote.textContent = "The writers have found work to do, not grounds to discard the property. Preserve the promise and answer the Photoplay Rule questions.";
-          if (action) {
-            action.textContent = "Open Development Questions";
-            action.href = "#reconference-workshop";
-          }
-          if (workshop) workshop.hidden = false;
-        }
-
-        if (room) new MutationObserver(enforceWritersRoomAuthority).observe(room, { subtree: true, childList: true, characterData: true, attributes: true });
-        enforceWritersRoomAuthority();
-      })();
-    </script>
     <script>
       (() => {
         const requestedProperty = new URLSearchParams(window.location.search).get("property");
