@@ -1243,6 +1243,14 @@ function renderReconferenceQuestions(payload) {
       </label>
     </fieldset>
   `).join("");
+  container.querySelectorAll("[data-reconference-question-id], [data-defer-question-id]").forEach((node) => {
+    node.addEventListener("input", () => {
+      const fieldset = node.closest(".development-question");
+      fieldset?.classList.remove("has-filing-error");
+      fieldset?.querySelector(".development-question__error")?.remove();
+      clearDevelopmentFilingError();
+    });
+  });
   if (reconferenceNote) {
     reconferenceNote.value = payload?.reviewStatus === "under_review"
       ? (payload?.pendingReview?.note || payload?.pendingReconference?.note || payload?.reconferenceNotes || "")
@@ -1315,20 +1323,46 @@ function requestConferenceVerdicts(reconferenceNotes) {
   });
 }
 
+function requestConferenceSubmissionStatus(submissionId) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioConferenceReceipt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("The conference clerk did not answer the receipt inquiry."));
+    }, 30000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("The conference receipt inquiry failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=conferenceSubmissionStatus&propertyId=${encodeURIComponent(activePropertyKey)}&submissionId=${encodeURIComponent(submissionId)}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
 function waitForFiledConferencePacket(submissionId) {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
     const poll = () => {
-      loadLedgerProperties()
+      requestConferenceSubmissionStatus(submissionId)
         .then((payload) => {
-          if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
-          const property = (payload.properties || []).find((item) =>
-            String(item.propertyId || "").toLowerCase() === String(activePropertyKey || "").toLowerCase()
-          );
-          const saved = parseSavedConference(property);
-          const receiptMatches = saved?.lastFiledSubmissionId === submissionId || saved?.pendingReview?.submissionId === submissionId;
-          if (saved && receiptMatches && saved.reviewStatus) {
-            resolve(saved);
+          if (payload?.status === "error" || payload?.ok === false) {
+            reject(new Error(payload?.error || "The conference clerk could not file the answers."));
+            return;
+          }
+          if (payload?.status === "filed" && payload?.packet) {
+            resolve(payload.packet);
             return;
           }
           if (Date.now() - startedAt > 120000) {
@@ -1373,9 +1407,17 @@ function reviewDueDate(payload) {
   return due && !Number.isNaN(due.getTime()) ? due : null;
 }
 
+function conferenceServerNow(payload) {
+  const serverValue = payload?.serverNow || payload?.pendingReview?.serverNow;
+  const serverDate = serverValue ? new Date(serverValue) : null;
+  return serverDate && !Number.isNaN(serverDate.getTime()) ? serverDate : null;
+}
+
 function reviewRemainingMs(payload) {
   const due = reviewDueDate(payload);
-  return due ? Math.max(0, due.getTime() - Date.now()) : 0;
+  const serverNow = conferenceServerNow(payload);
+  const now = serverNow ? serverNow.getTime() + (Date.now() - conferencePacketReceivedAt) : Date.now();
+  return due ? Math.max(0, due.getTime() - now) : 0;
 }
 
 function formatReviewRemaining(ms) {
@@ -1399,8 +1441,10 @@ function showReconferenceQuestionsState(payload) {
     const timerPanel = reconferenceTimer.closest(".countdown");
     if (timerPanel) timerPanel.hidden = true;
   }
+  renderDevelopmentFilingReceipt(payload, false);
+  clearDevelopmentFilingError();
   const calculation = document.querySelector("#review-calculation");
-  if (calculation) calculation.textContent = payload?.reviewCalculation || "12 minutes per filed question, plus a visible complexity allowance.";
+  if (calculation) calculation.textContent = payload?.reviewCalculation || "6 minutes per filed question, plus a visible 0, 6, or 12 minute complexity allowance.";
   renderReconferenceQuestions(payload);
   document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
     node.disabled = false;
@@ -1410,8 +1454,98 @@ function showReconferenceQuestionsState(payload) {
   });
   if (reconferenceNote) reconferenceNote.disabled = false;
   if (updatedConference) {
+    updatedConference.hidden = false;
     updatedConference.disabled = false;
     updatedConference.textContent = "Submit Answers to the Writers";
+  }
+}
+
+function formatConferenceDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "Not recorded";
+  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function renderDevelopmentFilingReceipt(payload, visible = true) {
+  const receipt = document.querySelector("#development-filing-receipt");
+  if (!receipt) return;
+  const pending = payload?.pendingReview;
+  if (!visible || !pending) {
+    receipt.hidden = true;
+    receipt.innerHTML = "";
+    return;
+  }
+  const timing = pending.timing || {};
+  receipt.hidden = false;
+  receipt.innerHTML = `
+    <p class="eyebrow">Answers Filed</p>
+    <h3>The development docket is in the writers' hands.</h3>
+    <dl>
+      <div><dt>Filed</dt><dd>${escapeHtml(formatConferenceDate(pending.filedAt || pending.reviewStartedAt))}</dd></div>
+      <div><dt>Questions</dt><dd>${escapeHtml(timing.questionCount ?? pending.questions?.length ?? 0)}</dd></div>
+      <div><dt>Complexity</dt><dd>${escapeHtml(timing.complexityMinutes ?? 0)} minutes</dd></div>
+      <div><dt>Review Due</dt><dd>${escapeHtml(formatConferenceDate(pending.reviewDueAt))}</dd></div>
+    </dl>
+  `;
+}
+
+function clearDevelopmentFilingError() {
+  const errorNode = document.querySelector("#development-filing-error");
+  if (!errorNode) return;
+  errorNode.hidden = true;
+  errorNode.textContent = "";
+}
+
+function showDevelopmentFilingError(message) {
+  const errorNode = document.querySelector("#development-filing-error");
+  if (!errorNode) return;
+  errorNode.hidden = false;
+  errorNode.textContent = message;
+}
+
+function markIncompleteDevelopmentQuestions(ids) {
+  const missing = new Set(ids);
+  document.querySelectorAll(".development-question").forEach((fieldset) => {
+    const input = fieldset.querySelector("[data-reconference-question-id]");
+    const isMissing = missing.has(input?.dataset.reconferenceQuestionId || "");
+    fieldset.classList.toggle("has-filing-error", isMissing);
+    let message = fieldset.querySelector(".development-question__error");
+    if (isMissing && !message) {
+      message = document.createElement("p");
+      message.className = "development-question__error";
+      message.textContent = "Answer this question or mark the decision Deferred.";
+      fieldset.appendChild(message);
+    } else if (!isMissing && message) {
+      message.remove();
+    }
+  });
+}
+
+async function openFiledConferenceReview() {
+  if (conferenceReviewOpening) return;
+  conferenceReviewOpening = true;
+  if (updatedConference) {
+    updatedConference.disabled = true;
+    updatedConference.textContent = "Opening Updated Conference...";
+  }
+  clearDevelopmentFilingError();
+  try {
+    const payload = await requestConferenceVerdicts();
+    if (!applyConferenceVerdicts(payload)) throw new Error(payload?.error || "Conference response was not OK.");
+    conferencePacketReceivedAt = Date.now();
+    photoplaywrightIndex = 0;
+    renderWriterCallboard();
+    showConferenceSelectionPrompt("The timed review is filed. Consult with any photoplaywright below to review the updated memoranda.");
+    showExecutiveVerdict(decideExecutiveVerdict());
+  } catch (error) {
+    showDevelopmentFilingError(error?.message || "The writers' updated conference could not be opened.");
+    if (updatedConference) {
+      updatedConference.hidden = false;
+      updatedConference.disabled = false;
+      updatedConference.textContent = "Retry Opening Review";
+    }
+  } finally {
+    conferenceReviewOpening = false;
   }
 }
 
@@ -1435,11 +1569,14 @@ function showReconferenceUnderReviewState(payload) {
   if (reconferenceNote) reconferenceNote.disabled = true;
   const calculation = document.querySelector("#review-calculation");
   if (calculation) calculation.textContent = payload?.reviewCalculation || payload?.pendingReview?.timing?.explanation || "";
+  renderDevelopmentFilingReceipt(payload, true);
+  clearDevelopmentFilingError();
 
   const tick = () => {
     const remaining = reviewRemainingMs(payload);
     reconferenceTimer.textContent = formatReviewRemaining(remaining);
     if (updatedConference) {
+      updatedConference.hidden = remaining > 0;
       updatedConference.disabled = remaining > 0;
       updatedConference.textContent = remaining > 0
         ? "Writers Reviewing Development Notes"
@@ -1447,6 +1584,7 @@ function showReconferenceUnderReviewState(payload) {
     }
     if (remaining <= 0) {
       clearInterval(reconferenceInterval);
+      openFiledConferenceReview();
     }
   };
 
@@ -1457,6 +1595,7 @@ function showReconferenceUnderReviewState(payload) {
 
 function applyConferenceVerdicts(payload) {
   if (!payload || !payload.ok) return false;
+  conferencePacketReceivedAt = Date.now();
   if (isStagedDevelopmentPacket(payload)) renderStagedDevelopment(payload);
   if (!Array.isArray(payload.writers)) payload.writers = [];
 
@@ -1610,6 +1749,8 @@ const labelRomance = document.querySelector("#label-romance");
 const labelSpectacle = document.querySelector("#label-spectacle");
 let photoplaywrightIndex = 0;
 let reconferenceInterval;
+let conferencePacketReceivedAt = Date.now();
+let conferenceReviewOpening = false;
 
 if (sendLetter && !activePropertyKey) {
   sendLetter.disabled = true;
@@ -2000,30 +2141,21 @@ if (updatedConference) {
     if (/^SPC-/i.test(activePropertyKey)) {
       if (activeConferencePayload?.reviewStatus === "under_review") {
         if (reviewRemainingMs(activeConferencePayload) > 0) return;
-        updatedConference.disabled = true;
-        updatedConference.textContent = "Opening Updated Conference";
-        try {
-          const payload = await requestConferenceVerdicts();
-          if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
-          photoplaywrightIndex = 0;
-          renderWriterCallboard();
-          showConferenceSelectionPrompt("The timed review has been filed. Consult with any photoplaywright below to review the updated memoranda.");
-          showExecutiveVerdict(decideExecutiveVerdict());
-        } catch (error) {
-          updatedConference.disabled = false;
-          updatedConference.textContent = "Open Updated Conference";
-        }
+        await openFiledConferenceReview();
         return;
       }
 
       updatedConference.disabled = true;
-      updatedConference.textContent = "Filing Answers";
+      updatedConference.textContent = "Filing Answers...";
+      clearDevelopmentFilingError();
+      markIncompleteDevelopmentQuestions([]);
       try {
         const round = conferenceQuestionRound(activeConferencePayload);
         const answers = collectReconferenceAnswers();
         const incomplete = validateDevelopmentAnswers(answers);
         if (incomplete.length) {
-          throw new Error("Answer or defer every current development question before filing.");
+          markIncompleteDevelopmentQuestions(incomplete);
+          throw new Error("Answer or defer every highlighted development question before filing.");
         }
         const submissionId = makeDevelopmentSubmissionId();
         const questions = normalizeCurrentConferenceQuestions(activeConferencePayload).map((question) => ({
@@ -2053,6 +2185,7 @@ if (updatedConference) {
           showExecutiveVerdict(decideExecutiveVerdict());
         }
       } catch (error) {
+        showDevelopmentFilingError(error && error.message ? error.message : "The development answers could not be filed.");
         if (readerVerdict) {
           const detail = error && error.message ? error.message : "No detailed error was returned.";
           readerVerdict.innerHTML = `

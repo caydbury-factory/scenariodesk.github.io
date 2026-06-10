@@ -2140,6 +2140,75 @@ footer {
   opacity: .58;
 }
 
+.development-question {
+  margin: 0;
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.development-question.has-filing-error {
+  background: #fff4ed;
+  border-color: #a43827;
+  box-shadow: inset 4px 0 #a43827;
+}
+
+.development-question__error,
+.development-filing-error {
+  margin: .65rem 0 0;
+  color: #8c251d;
+  font-family: "Special Elite", monospace;
+  font-size: .88rem;
+  letter-spacing: .04em;
+  line-height: 1.5;
+  text-transform: none;
+}
+
+.development-filing-receipt {
+  margin: 1rem 0;
+  padding: 1rem 1.1rem;
+  color: #4b3427;
+  background: #f7ecd0;
+  border: 1px solid rgba(142, 83, 27, .42);
+  box-shadow: inset 5px 0 #c99108;
+}
+
+.development-filing-receipt h3 {
+  margin: .2rem 0 .85rem;
+  color: #672f1f;
+}
+
+.development-filing-receipt dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem 1rem;
+  margin: 0;
+}
+
+.development-filing-receipt dl div {
+  display: grid;
+  gap: .15rem;
+}
+
+.development-filing-receipt dt {
+  color: #996718;
+  font-family: "Special Elite", monospace;
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.development-filing-receipt dd {
+  margin: 0;
+  font-family: "Libre Baskerville", Georgia, serif;
+}
+
+@media (max-width: 620px) {
+  .development-filing-receipt dl {
+    grid-template-columns: 1fr;
+  }
+}
+
 .treatment-room {
   background:
     linear-gradient(rgba(239, 228, 201, .94), rgba(239, 228, 201, .94)),
