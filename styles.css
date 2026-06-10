@@ -1728,6 +1728,37 @@ footer {
   line-height: 1.8;
 }
 
+.reader-sheet > #reader-synopsis,
+#sequence-list,
+#archetype-list,
+.development-stage-records,
+.reconference-feedback,
+.scrolling-work-panel {
+  max-height: min(58vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #a97423 #f1e5cd;
+  scrollbar-width: thin;
+}
+
+.reader-sheet > #reader-synopsis,
+#sequence-list,
+#archetype-list,
+.development-stage-records,
+.reconference-feedback {
+  padding-right: .65rem;
+}
+
+.reader-sheet .form-letterhead,
+.analysis-sheet > .eyebrow,
+.reconference-workshop > .eyebrow {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-block: .35rem;
+  background: #fffdf7;
+}
+
 .analysis-grid {
   width: min(1120px, 100%);
   margin: 0 auto;
@@ -2412,6 +2443,90 @@ footer {
   border: 1px solid rgba(126, 72, 25, .28);
 }
 
+.development-decisions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin: 1rem 0;
+}
+
+.development-decision-group {
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(126, 72, 25, .28);
+}
+
+.development-decision-group h3 {
+  margin: 0 0 .6rem;
+  color: #7d431c;
+  font-size: 1rem;
+}
+
+.development-decision-group ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.development-decision-group p,
+.development-decision-group li {
+  margin: 0 0 .35rem;
+  line-height: 1.55;
+}
+
+.development-decision-group.is-resolved {
+  border-left: 4px solid #6d7b3b;
+}
+
+.development-decision-group.is-unresolved {
+  border-left: 4px solid #a44b32;
+}
+
+.development-decision-group.is-deferred {
+  border-left: 4px solid #99722a;
+}
+
+.development-decision-group.is-new {
+  border-left: 4px solid #46758a;
+}
+
+.development-question {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(126, 72, 25, .28);
+}
+
+.development-question__gap {
+  color: #78452b;
+  font-family: Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.development-question small {
+  display: block;
+  margin-bottom: .4rem;
+  color: #8a684a;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.development-question__defer {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin-top: .7rem;
+  color: #6e4a2f;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.development-question__defer input {
+  width: 1rem;
+  height: 1rem;
+}
+
 .development-blueprint span {
   color: #a36a00;
   font-family: "Cinzel", Georgia, serif;
@@ -2457,7 +2572,8 @@ footer {
 
 @media (max-width: 850px) {
   .development-rail,
-  .development-blueprint {
+  .development-blueprint,
+  .development-decisions {
     grid-template-columns: 1fr;
   }
 

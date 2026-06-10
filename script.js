@@ -919,6 +919,7 @@ function renderStagedDevelopment(payload) {
   const summary = document.querySelector("#development-stage-summary");
   const blueprint = document.querySelector("#development-blueprint");
   const records = document.querySelector("#development-stage-records");
+  const decisions = document.querySelector("#development-decisions");
   const legacy = document.querySelector("#legacy-conference-notes");
   if (!workflow || !rail || !title || !summary || !blueprint || !records) return;
 
@@ -954,6 +955,23 @@ function renderStagedDevelopment(payload) {
       <p>${escapeHtml(payload.developmentBlueprint?.[key] || "Still being determined.")}</p>
     </article>
   `).join("");
+
+  if (decisions) {
+    const decisionGroups = [
+      ["Resolved Decisions", payload.resolvedDecisions || activePacket.resolvedDecisions || [], "is-resolved"],
+      ["Unresolved Decisions", payload.unresolvedDecisions || activePacket.unresolvedDecisions || [], "is-unresolved"],
+      ["Deferred Decisions", payload.deferredDecisions || activePacket.deferredDecisions || [], "is-deferred"],
+      ["Newly Raised Decisions", payload.newlyRaisedDecisions || activePacket.newlyRaisedDecisions || [], "is-new"]
+    ];
+    decisions.innerHTML = decisionGroups.map(([label, items, className]) => `
+      <article class="development-decision-group ${className}">
+        <h3>${escapeHtml(label)}</h3>
+        ${items.length
+          ? `<ul>${items.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : item.label || item.id || "")}</li>`).join("")}</ul>`
+          : "<p>None filed at this stage.</p>"}
+      </article>
+    `).join("");
+  }
 
   records.innerHTML = (payload.completedStages || []).map((stage) => {
     const packet = payload.stagePackets[developmentStageKey(stage)] || {};
@@ -1012,7 +1030,9 @@ function normalizeConferenceQuestions(payload) {
       label: item.label || `Conference Repair ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Clarify the repair demanded by the photoplaywrights.",
       placeholder: item.placeholder || "Enter the new dramatic material for the updated conference...",
-      sourceConcernIds: item.sourceConcernIds || []
+      sourceConcernIds: item.sourceConcernIds || [],
+      parentQuestionIds: item.parentQuestionIds || [],
+      remainingGap: item.remainingGap || ""
     }));
   }
 
@@ -1046,7 +1066,9 @@ function normalizeCurrentConferenceQuestions(payload) {
       label: item.label || `Development Question ${String(index + 1).padStart(2, "0")}`,
       prompt: item.prompt || item.question || "Settle this development decision.",
       placeholder: item.placeholder || "Describe the screen decision the writers should carry forward.",
-      sourceConcernIds: item.sourceConcernIds || []
+      sourceConcernIds: item.sourceConcernIds || [],
+      parentQuestionIds: item.parentQuestionIds || [],
+      remainingGap: item.remainingGap || ""
     }));
   }
   const questions = Array.isArray(payload && payload.reconferenceQuestions)
@@ -1098,6 +1120,12 @@ function normalizeReconferenceCount(payload, fallback = 0) {
   return Math.max(0, Number(fallback) || 0);
 }
 
+function normalizeDeferredConferenceAnswers(payload) {
+  const raw = payload?.pendingReview?.answers || [];
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(raw.filter((item) => item?.deferred === true).map((item) => item.id));
+}
+
 function conferenceQuestionRound(payload) {
   return Math.max(1, Number(payload?.questionRound || payload?.pendingReconference?.round || payload?.reconferenceCount || 1) || 1);
 }
@@ -1112,13 +1140,16 @@ function renderFiledReconferenceHistory(payload, mode = "questions") {
       const answers = Array.isArray(entry.answers)
         ? Object.fromEntries(entry.answers.map((answer) => [answer.id, answer.answer || ""]))
         : (entry.answers || {});
+      const deferredIds = new Set(Array.isArray(entry.answers)
+        ? entry.answers.filter((answer) => answer?.deferred === true).map((answer) => answer.id)
+        : []);
       return `<div>
         <h3>${escapeHtml(entry.stageName || "Development Stage")} - Answers Filed</h3>
         ${questions.map((question) => `
           <article class="analysis-card">
             <h3>${escapeHtml(question.label || question.id || "Development Question")}</h3>
             <p>${escapeHtml(question.prompt || "")}</p>
-            <blockquote>${escapeHtml(answers[question.id] || "No answer was filed.")}</blockquote>
+            <blockquote>${deferredIds.has(question.id) ? "Decision deferred for a later pass." : escapeHtml(answers[question.id] || "No answer was filed.")}</blockquote>
           </article>
         `).join("")}
         ${entry.note ? `<p><strong>Additional material:</strong> ${escapeHtml(entry.note)}</p>` : ""}
@@ -1190,20 +1221,31 @@ function renderReconferenceQuestions(payload) {
     ? normalizeConferenceQuestions(payload)
     : normalizeCurrentConferenceQuestions(payload);
   const answers = payload?.reviewStatus === "under_review" ? normalizeConferenceAnswers(payload) : {};
+  const deferred = payload?.reviewStatus === "under_review" ? normalizeDeferredConferenceAnswers(payload) : new Set();
   const round = conferenceQuestionRound(payload);
   container.innerHTML = questions.map((question) => `
-    <label>
+    <fieldset class="development-question">
+      <label>
       ${escapeHtml(question.label)}
       <p>${escapeHtml(question.prompt)}</p>
+      ${question.remainingGap ? `<p class="development-question__gap"><strong>Remaining gap:</strong> ${escapeHtml(question.remainingGap)}</p>` : ""}
       ${Array.isArray(question.sourceConcernIds) && question.sourceConcernIds.length
         ? `<small>Drawn from concerns: ${question.sourceConcernIds.map((id) => escapeHtml(id)).join(", ")}</small>`
         : ""}
+      ${Array.isArray(question.parentQuestionIds) && question.parentQuestionIds.length
+        ? `<small>Builds on questions: ${question.parentQuestionIds.map((id) => escapeHtml(id)).join(", ")}</small>`
+        : ""}
       <textarea data-reconference-question-id="${escapeHtml(question.id)}" placeholder="${escapeHtml(question.placeholder)}">${escapeHtml(answers[question.id] || "")}</textarea>
-    </label>
+      </label>
+      <label class="development-question__defer">
+        <input type="checkbox" data-defer-question-id="${escapeHtml(question.id)}" ${deferred.has(question.id) ? "checked" : ""} />
+        Defer this decision
+      </label>
+    </fieldset>
   `).join("");
   if (reconferenceNote) {
     reconferenceNote.value = payload?.reviewStatus === "under_review"
-      ? (payload?.pendingReconference?.note || payload?.reconferenceNotes || "")
+      ? (payload?.pendingReview?.note || payload?.pendingReconference?.note || payload?.reconferenceNotes || "")
       : "";
     reconferenceNote.placeholder = round >= 2
       ? "Add any final clarification before the writers make their last decision..."
@@ -1212,10 +1254,24 @@ function renderReconferenceQuestions(payload) {
 }
 
 function collectReconferenceAnswers() {
+  const deferredIds = new Set(Array.from(document.querySelectorAll("[data-defer-question-id]"))
+    .filter((node) => node.checked)
+    .map((node) => node.dataset.deferQuestionId || ""));
   return Array.from(document.querySelectorAll("[data-reconference-question-id]")).map((node) => ({
     id: node.dataset.reconferenceQuestionId || "",
-    answer: node.value || ""
+    answer: node.value || "",
+    deferred: deferredIds.has(node.dataset.reconferenceQuestionId || "")
   }));
+}
+
+function validateDevelopmentAnswers(answers) {
+  const incomplete = answers.filter((item) => !String(item.answer || "").trim() && item.deferred !== true);
+  return incomplete.map((item) => item.id);
+}
+
+function makeDevelopmentSubmissionId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `development-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function collectReconferenceNote() {
@@ -1259,11 +1315,9 @@ function requestConferenceVerdicts(reconferenceNotes) {
   });
 }
 
-function waitForFiledConferencePacket(expectedReconferenceCount) {
+function waitForFiledConferencePacket(submissionId) {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const expectedCount = Number(expectedReconferenceCount || 0) || 0;
-
     const poll = () => {
       loadLedgerProperties()
         .then((payload) => {
@@ -1272,13 +1326,13 @@ function waitForFiledConferencePacket(expectedReconferenceCount) {
             String(item.propertyId || "").toLowerCase() === String(activePropertyKey || "").toLowerCase()
           );
           const saved = parseSavedConference(property);
-          const savedCount = Number(saved?.reconferenceCount || 0) || 0;
-          if (saved && savedCount >= expectedCount && saved.reviewStatus) {
+          const receiptMatches = saved?.lastFiledSubmissionId === submissionId || saved?.pendingReview?.submissionId === submissionId;
+          if (saved && receiptMatches && saved.reviewStatus) {
             resolve(saved);
             return;
           }
           if (Date.now() - startedAt > 120000) {
-            reject(new Error("The writers did not file the repair packet before the office clock ran out."));
+            reject(new Error("The writers did not file this answer receipt before the office clock ran out."));
             return;
           }
           window.setTimeout(poll, 4000);
@@ -1297,7 +1351,8 @@ function waitForFiledConferencePacket(expectedReconferenceCount) {
 }
 
 async function postConferenceRepairAnswers(reconferenceNotes) {
-  const expectedCount = Number(reconferenceNotes?.reconferenceCount || reconferenceCount + 1 || 1) || 1;
+  const submissionId = reconferenceNotes?.submissionId || makeDevelopmentSubmissionId();
+  reconferenceNotes.submissionId = submissionId;
   await fetch(scenarioBackendUrl, {
     method: "POST",
     mode: "no-cors",
@@ -1309,7 +1364,7 @@ async function postConferenceRepairAnswers(reconferenceNotes) {
       reconferenceNotes
     })
   });
-  return waitForFiledConferencePacket(expectedCount);
+  return waitForFiledConferencePacket(submissionId);
 }
 
 function reviewDueDate(payload) {
@@ -1350,6 +1405,9 @@ function showReconferenceQuestionsState(payload) {
   document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
     node.disabled = false;
   });
+  document.querySelectorAll("[data-defer-question-id]").forEach((node) => {
+    node.disabled = false;
+  });
   if (reconferenceNote) reconferenceNote.disabled = false;
   if (updatedConference) {
     updatedConference.disabled = false;
@@ -1369,6 +1427,9 @@ function showReconferenceUnderReviewState(payload) {
   renderFiledReconferenceHistory(payload, "under_review");
   renderReconferenceQuestions(payload);
   document.querySelectorAll("[data-reconference-question-id]").forEach((node) => {
+    node.disabled = true;
+  });
+  document.querySelectorAll("[data-defer-question-id]").forEach((node) => {
     node.disabled = true;
   });
   if (reconferenceNote) reconferenceNote.disabled = true;
@@ -1956,17 +2017,27 @@ if (updatedConference) {
       }
 
       updatedConference.disabled = true;
-      updatedConference.textContent = "Submitting Answers";
+      updatedConference.textContent = "Filing Answers";
       try {
         const round = conferenceQuestionRound(activeConferencePayload);
+        const answers = collectReconferenceAnswers();
+        const incomplete = validateDevelopmentAnswers(answers);
+        if (incomplete.length) {
+          throw new Error("Answer or defer every current development question before filing.");
+        }
+        const submissionId = makeDevelopmentSubmissionId();
         const questions = normalizeCurrentConferenceQuestions(activeConferencePayload).map((question) => ({
           id: question.id,
           label: question.label,
-          prompt: question.prompt
+          prompt: question.prompt,
+          sourceConcernIds: question.sourceConcernIds || [],
+          parentQuestionIds: question.parentQuestionIds || [],
+          remainingGap: question.remainingGap || ""
         }));
         const payload = await postConferenceRepairAnswers({
+          submissionId,
           questions,
-          answers: collectReconferenceAnswers(),
+          answers,
           note: collectReconferenceNote(),
           activeStage: activeConferencePayload?.activeStage || "",
           questionRound: round,
