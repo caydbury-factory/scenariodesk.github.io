@@ -2140,6 +2140,24 @@ footer {
   opacity: .58;
 }
 
+.development-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+}
+
+.reconference-form .development-complete-stage {
+  color: #713b17;
+  background: #fff8df;
+  border-color: #a67616;
+}
+
+@media (max-width: 700px) {
+  .development-action-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .development-question {
   margin: 0;
   padding: 1rem;

@@ -1018,7 +1018,7 @@ function renderStagedDevelopment(payload) {
     const packet = payload.stagePackets[developmentStageKey(stage)] || {};
     return `<article class="development-stage-record">
       <div>
-        <p class="eyebrow">Filed Development Stage</p>
+        <p class="eyebrow">${packet.filedByStudioDirection ? "Filed by Studio Direction" : "Filed Development Stage"}</p>
         <h3>${escapeHtml(stage)}</h3>
         <p>${escapeHtml(packet.completionSummary || "This stage has been filed in the development blueprint.")}</p>
         ${Array.isArray(packet.adaptationLenses) && packet.adaptationLenses.length
@@ -1508,6 +1508,11 @@ function showReconferenceQuestionsState(payload) {
     updatedConference.disabled = false;
     updatedConference.textContent = "Submit Stage Answers to the Writers";
   }
+  if (completeDevelopmentStage) {
+    completeDevelopmentStage.hidden = !isStagedDevelopmentPacket(payload) || !payload.activeStage;
+    completeDevelopmentStage.disabled = false;
+    completeDevelopmentStage.textContent = "Complete This Stage";
+  }
 }
 
 function formatConferenceDate(value) {
@@ -1617,6 +1622,7 @@ function showReconferenceUnderReviewState(payload) {
     node.disabled = true;
   });
   if (reconferenceNote) reconferenceNote.disabled = true;
+  if (completeDevelopmentStage) completeDevelopmentStage.hidden = true;
   const calculation = document.querySelector("#review-calculation");
   if (calculation) calculation.textContent = payload?.reviewCalculation || payload?.pendingReview?.timing?.explanation || "";
   renderDevelopmentFilingReceipt(payload, true);
@@ -1696,6 +1702,7 @@ function applyConferenceVerdicts(payload) {
     }
   } else if (reconferenceWorkshop) {
     reconferenceWorkshop.hidden = true;
+    if (completeDevelopmentStage) completeDevelopmentStage.hidden = true;
   }
 
   return true;
@@ -1793,6 +1800,7 @@ const reconferenceWorkshop = document.querySelector("#reconference-workshop");
 const reconferenceTimer = document.querySelector("#reconference-timer");
 const reconferenceFeedback = document.querySelector("#reconference-feedback");
 const updatedConference = document.querySelector("#updated-conference");
+const completeDevelopmentStage = document.querySelector("#complete-development-stage");
 const reconferenceNote = document.querySelector("#reconference-note");
 const labelMoralPressure = document.querySelector("#label-moral-pressure");
 const labelRomance = document.querySelector("#label-romance");
@@ -2197,6 +2205,7 @@ if (updatedConference) {
 
       updatedConference.disabled = true;
       updatedConference.textContent = "Filing Answers...";
+      if (completeDevelopmentStage) completeDevelopmentStage.disabled = true;
       clearDevelopmentFilingError();
       markIncompleteDevelopmentQuestions([]);
       try {
@@ -2245,6 +2254,7 @@ if (updatedConference) {
         }
         updatedConference.disabled = false;
         updatedConference.textContent = "Submit Stage Answers to the Writers";
+        if (completeDevelopmentStage) completeDevelopmentStage.disabled = false;
       }
       return;
     }
@@ -2264,6 +2274,50 @@ if (updatedConference) {
     }
 
     showExecutiveVerdict("reconference");
+  });
+}
+
+if (completeDevelopmentStage) {
+  completeDevelopmentStage.addEventListener("click", async () => {
+    if (!/^SPC-/i.test(activePropertyKey) || !isStagedDevelopmentPacket(activeConferencePayload) || !activeConferencePayload.activeStage) return;
+    const stageName = activeConferencePayload.activeStage;
+    const confirmed = window.confirm(`Complete ${stageName} by studio direction? Any unanswered questions will be carried forward as development cautions, and the next stage will open immediately.`);
+    if (!confirmed) return;
+
+    completeDevelopmentStage.disabled = true;
+    completeDevelopmentStage.textContent = "Filing Completed Stage...";
+    if (updatedConference) updatedConference.disabled = true;
+    clearDevelopmentFilingError();
+    try {
+      const payload = await requestConferenceVerdicts({ action: "completeStage", stageName });
+      if (!applyConferenceVerdicts(payload)) throw new Error(payload?.error || "The completed stage could not be filed.");
+      photoplaywrightIndex = 0;
+      renderWriterCallboard();
+      showConferenceSelectionPrompt(payload.statusLabel === "Treatment Ready"
+        ? "The development blueprint is complete and ready for Treatment Room."
+        : `${stageName} was filed by studio direction. The next development docket is now open.`);
+      showExecutiveVerdict(decideExecutiveVerdict());
+      if (payload.openingError) {
+        if (reconferenceWorkshop) reconferenceWorkshop.hidden = false;
+        showDevelopmentFilingError(payload.openingError);
+        completeDevelopmentStage.hidden = true;
+        if (updatedConference) updatedConference.hidden = true;
+        if (readerVerdict) {
+          readerVerdict.innerHTML = `
+            <p class="eyebrow">Stage Filed by Studio Direction</p>
+            <h3>The next development docket could not be opened just now.</h3>
+            <p>${escapeHtml(payload.openingError)}</p>
+            <p>The completed stage remains safely filed. Reopen this property to ask the writers for the next docket again.</p>
+          `;
+        }
+      }
+    } catch (error) {
+      showDevelopmentFilingError(error?.message || "The completed stage could not be filed.");
+      completeDevelopmentStage.hidden = false;
+      completeDevelopmentStage.disabled = false;
+      completeDevelopmentStage.textContent = "Complete This Stage";
+      if (updatedConference) updatedConference.disabled = false;
+    }
   });
 }
 
