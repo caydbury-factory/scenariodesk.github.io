@@ -219,33 +219,8 @@
         }
 
         function readLedger() {
-          return new Promise((resolve, reject) => {
-            const callbackName = `writersRoomLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            const script = document.createElement("script");
-            const timeout = window.setTimeout(() => {
-              cleanup();
-              reject(new Error("Ledger request timed out."));
-            }, 12000);
-
-            function cleanup() {
-              window.clearTimeout(timeout);
-              delete window[callbackName];
-              script.remove();
-            }
-
-            window[callbackName] = (payload) => {
-              cleanup();
-              resolve(payload);
-            };
-
-            script.onerror = () => {
-              cleanup();
-              reject(new Error("Ledger request failed."));
-            };
-
-            script.src = `${backendUrl}?action=properties&callback=${encodeURIComponent(callbackName)}`;
-            document.body.appendChild(script);
-          });
+          return loadPropertyPacket(requestedProperty, ["source", "reader", "conference"])
+            .then((property) => ({ ok: true, property }));
         }
 
         function splitNumberedItems(value) {
@@ -364,9 +339,7 @@
           const payload = await readLedger();
           if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
 
-          const property = (payload.properties || []).find((item) =>
-            String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
-          );
+          const property = payload.property || null;
 
           if (property) renderDynamicDossier(property);
           if (hasReaderReport(property)) {
@@ -403,9 +376,7 @@
                 propertyId: requestedProperty,
                 title: activeLedgerProperty && activeLedgerProperty.title ? activeLedgerProperty.title : "",
                 sourceType: activeLedgerProperty && activeLedgerProperty.sourceType ? activeLedgerProperty.sourceType : "",
-                logline: activeLedgerProperty && activeLedgerProperty.logline ? activeLedgerProperty.logline : "",
-                notes: activeLedgerProperty && activeLedgerProperty.notes ? activeLedgerProperty.notes : "",
-                manuscriptText: activeLedgerProperty && activeLedgerProperty.manuscriptText ? activeLedgerProperty.manuscriptText : ""
+                logline: activeLedgerProperty && activeLedgerProperty.logline ? activeLedgerProperty.logline : ""
               })
             });
 
@@ -425,9 +396,7 @@
         readLedger()
           .then((payload) => {
             if (!payload || !payload.ok) return;
-            const property = (payload.properties || []).find((item) =>
-              String(item.propertyId || "").toLowerCase() === requestedProperty.toLowerCase()
-            );
+            const property = payload.property || null;
             if (property) {
               renderDynamicDossier(property);
               if (shouldAutoRunReader && !hasReaderReport(property)) {

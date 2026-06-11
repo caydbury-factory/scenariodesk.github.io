@@ -886,6 +886,46 @@ function normalizeConferenceDecision(value) {
   return "treatments";
 }
 
+function loadPropertyPacket(propertyId, sections = []) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioPropertyPacket_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Property packet request timed out."));
+    }, 30000);
+
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    window[callbackName] = (payload) => {
+      cleanup();
+      if (!payload?.ok || !payload?.property) {
+        loadLedgerProperties()
+          .then((ledger) => {
+            const fallback = (ledger?.properties || []).find((item) =>
+              String(item.propertyId || "").toLowerCase() === String(propertyId || "").toLowerCase()
+            );
+            if (!fallback) throw new Error(payload?.error || "The private property packet was unavailable.");
+            resolve(fallback);
+          })
+          .catch(reject);
+        return;
+      }
+      resolve(payload.property);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Property packet request failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=propertyPacket&propertyId=${encodeURIComponent(propertyId)}&sections=${encodeURIComponent(sections.join(","))}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
 const stagedDevelopmentNames = [
   "Property Examination",
   "Theme Determination",
@@ -2556,15 +2596,8 @@ if (treatmentTitle) {
     if (treatmentLogline) {
       treatmentLogline.textContent = "The current property packet will appear here as soon as the ledger finishes loading.";
     }
-    loadLedgerProperties()
-      .then((payload) => {
-        if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
-        const property = (payload.properties || []).find((item) =>
-          String(item.propertyId || "").toLowerCase() === key.toLowerCase()
-        );
-        if (property) renderLiveTreatmentProperty(property);
-        else showTreatmentDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
-      })
+    loadPropertyPacket(key, ["source", "reader", "conference", "treatment", "carstairs"])
+      .then(renderLiveTreatmentProperty)
       .catch(() => {
         if (kicker) kicker.textContent = "Treatment Room - ledger unavailable";
         treatmentTitle.textContent = "Treatment Packet Unavailable";
@@ -2908,16 +2941,8 @@ if (carstairsTitle) {
     evaluateTreatment.textContent = "Awaiting Treatment Packet";
   }
   if (/^SPC-/i.test(key)) {
-    loadLedgerProperties()
-      .then((payload) => {
-        if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
-        const property = (payload.properties || []).find((item) =>
-          String(item.propertyId || "").toLowerCase() === key.toLowerCase()
-        );
-        if (!property) {
-          showCarstairsDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
-          return;
-        }
+    loadPropertyPacket(key, ["source", "reader", "conference", "treatment", "carstairs"])
+      .then((property) => {
         renderCarstairsPacket(property);
         const saved = parseSavedCarstairs(property);
         if (saved) {
