@@ -1001,13 +1001,14 @@ function renderStagedDevelopment(payload) {
       ["Resolved Decisions", payload.resolvedDecisions || activePacket.resolvedDecisions || [], "is-resolved"],
       ["Unresolved Decisions", payload.unresolvedDecisions || activePacket.unresolvedDecisions || [], "is-unresolved"],
       ["Deferred Decisions", payload.deferredDecisions || activePacket.deferredDecisions || [], "is-deferred"],
-      ["Newly Raised Decisions", payload.newlyRaisedDecisions || activePacket.newlyRaisedDecisions || [], "is-new"]
+      ["Newly Raised Decisions", payload.newlyRaisedDecisions || activePacket.newlyRaisedDecisions || [], "is-new"],
+      ["Development Cautions", payload.developmentCautions || [], "is-deferred"]
     ];
     decisions.innerHTML = decisionGroups.map(([label, items, className]) => `
       <article class="development-decision-group ${className}">
         <h3>${escapeHtml(label)}</h3>
         ${items.length
-          ? `<ul>${items.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : item.label || item.id || "")}</li>`).join("")}</ul>`
+          ? `<ul>${items.map((item) => `<li>${escapeHtml(typeof item === "string" ? item : item.caution || item.label || item.id || "")}</li>`).join("")}</ul>`
           : "<p>None filed at this stage.</p>"}
       </article>
     `).join("");
@@ -1022,6 +1023,18 @@ function renderStagedDevelopment(payload) {
         <p>${escapeHtml(packet.completionSummary || "This stage has been filed in the development blueprint.")}</p>
         ${Array.isArray(packet.adaptationLenses) && packet.adaptationLenses.length
           ? `<p><strong>Studio-inspired adaptation lenses:</strong> ${packet.adaptationLenses.map((lens) => escapeHtml(lens)).join(" ")}</p>`
+          : ""}
+        ${Array.isArray(packet.developmentCautions) && packet.developmentCautions.length
+          ? `<div class="development-stage-cautions"><strong>Carried forward as cautions:</strong><ul>${packet.developmentCautions.map((item) => `<li>${escapeHtml(item.caution || item.label || "")}</li>`).join("")}</ul></div>`
+          : ""}
+        ${Array.isArray(packet.writers) && packet.writers.length
+          ? `<details class="development-stage-responses"><summary>Read the writers' filed responses</summary>${packet.writers.map((writer) => `
+              <article>
+                <h4>${escapeHtml(writer.title || "Photoplaywright")}</h4>
+                <p>${escapeHtml(writer.body || "Development response filed.")}</p>
+                ${writer.suggestions ? `<p><strong>Advice carried forward:</strong> ${escapeHtml(writer.suggestions)}</p>` : ""}
+              </article>
+            `).join("")}</details>`
           : ""}
       </div>
       <button type="button" class="button button--small" data-reopen-development-stage="${escapeHtml(stage)}">Reopen This Stage</button>
@@ -1224,8 +1237,8 @@ function renderFiledReconferenceHistory(payload, mode = "questions") {
     `).join("");
     blocks.push(`
       <div>
-        <h3>Round ${escapeHtml(entry.round || "")} Answers Filed</h3>
-        ${answerHtml || "<p>Prior reconference material is filed in the ledger.</p>"}
+        <h3>Development Answers Filed</h3>
+        ${answerHtml || "<p>Prior development material is filed in the ledger.</p>"}
         ${entry.note ? `<p><strong>General note:</strong> ${escapeHtml(entry.note)}</p>` : ""}
       </div>
     `);
@@ -1234,7 +1247,7 @@ function renderFiledReconferenceHistory(payload, mode = "questions") {
   if (mode === "under_review" && pending) {
     blocks.push(`
       <div>
-        <h3>Round ${escapeHtml(pending.round || conferenceQuestionRound(payload))} Answers Filed</h3>
+        <h3>Development Answers Filed</h3>
         <p>The writers have the added material shown below. Their new decision has not been written yet.</p>
         ${pending.note ? `<p><strong>General note:</strong> ${escapeHtml(pending.note)}</p>` : ""}
       </div>
@@ -1262,7 +1275,6 @@ function renderReconferenceQuestions(payload) {
     : normalizeCurrentConferenceQuestions(payload);
   const answers = payload?.reviewStatus === "under_review" ? normalizeConferenceAnswers(payload) : {};
   const deferred = payload?.reviewStatus === "under_review" ? normalizeDeferredConferenceAnswers(payload) : new Set();
-  const round = conferenceQuestionRound(payload);
   container.innerHTML = questions.map((question) => `
     <fieldset class="development-question">
       <label>
@@ -1295,9 +1307,7 @@ function renderReconferenceQuestions(payload) {
     reconferenceNote.value = payload?.reviewStatus === "under_review"
       ? (payload?.pendingReview?.note || payload?.pendingReconference?.note || payload?.reconferenceNotes || "")
       : "";
-    reconferenceNote.placeholder = round >= 2
-      ? "Add any final clarification before the writers make their last decision..."
-      : "Add any general note for the reconvened writers...";
+    reconferenceNote.placeholder = "Add any general note the writers should carry into this stage review...";
   }
 }
 
@@ -1474,7 +1484,7 @@ function showReconferenceQuestionsState(payload) {
   const heading = reconferenceWorkshop.querySelector("h2");
   if (heading) heading.textContent = isStagedDevelopmentPacket(payload)
     ? `${payload.activeStage || "Development"} Docket`
-    : `Development Questions: Round ${conferenceQuestionRound(payload)}`;
+    : "Development Docket";
   renderFiledReconferenceHistory(payload, "questions");
   if (reconferenceTimer) {
     reconferenceTimer.textContent = `${String(payload?.reviewMinutes || 0).padStart(2, "0")}:00`;
@@ -1496,7 +1506,7 @@ function showReconferenceQuestionsState(payload) {
   if (updatedConference) {
     updatedConference.hidden = false;
     updatedConference.disabled = false;
-    updatedConference.textContent = "Submit Answers to the Writers";
+    updatedConference.textContent = "Submit Stage Answers to the Writers";
   }
 }
 
@@ -1595,7 +1605,7 @@ function showReconferenceUnderReviewState(payload) {
   const heading = reconferenceWorkshop.querySelector("h2");
   if (heading) heading.textContent = isStagedDevelopmentPacket(payload)
     ? `${payload.activeStage || payload.pendingReview?.stageName || "Development"} Answers Filed`
-    : `Answers Filed: Round ${conferenceQuestionRound(payload)}`;
+    : "Development Answers Filed";
   const timerPanel = reconferenceTimer.closest(".countdown");
   if (timerPanel) timerPanel.hidden = false;
   renderFiledReconferenceHistory(payload, "under_review");
@@ -2190,7 +2200,6 @@ if (updatedConference) {
       clearDevelopmentFilingError();
       markIncompleteDevelopmentQuestions([]);
       try {
-        const round = conferenceQuestionRound(activeConferencePayload);
         const answers = collectReconferenceAnswers();
         const incomplete = validateDevelopmentAnswers(answers);
         if (incomplete.length) {
@@ -2212,8 +2221,8 @@ if (updatedConference) {
           answers,
           note: collectReconferenceNote(),
           activeStage: activeConferencePayload?.activeStage || "",
-          questionRound: round,
-          reconferenceCount: Math.max(round, reconferenceCount + 1)
+          questionRound: conferenceQuestionRound(activeConferencePayload),
+          reconferenceCount: Math.max(conferenceQuestionRound(activeConferencePayload), reconferenceCount + 1)
         });
         if (!applyConferenceVerdicts(payload)) throw new Error("Conference response was not OK.");
         photoplaywrightIndex = 0;
@@ -2234,9 +2243,8 @@ if (updatedConference) {
             <p>The new material remains on the table. ${escapeHtml(detail)}</p>
           `;
         }
-        const round = conferenceQuestionRound(activeConferencePayload);
         updatedConference.disabled = false;
-        updatedConference.textContent = round >= 2 ? "Submit Second-Round Answers" : "Submit Answers to the Writers";
+        updatedConference.textContent = "Submit Stage Answers to the Writers";
       }
       return;
     }
@@ -2248,8 +2256,8 @@ if (updatedConference) {
           <span class="verdict-card__seal">J.M.</span>
           <div>
             <h3>Miss Jeanette Marchmont</h3>
-            <p class="verdict-card__role">Second Conference / Structure Reconsidered</p>
-            <p>The new material improves the moral pressure, but the romance and spectacle still do not strike the same clock. The conference requires one final strengthening pass before the property can be saved.</p>
+            <p class="verdict-card__role">Stage Development Filed</p>
+            <p>The writers have filed their constructive response and carried the remaining cautions forward into the development blueprint.</p>
           </div>
         </div>
       `;
