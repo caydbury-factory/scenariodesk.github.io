@@ -4,46 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Writers' Room | The Scenario Department</title>
-    <link rel="stylesheet" href="styles.css" />
-    <style>
-      .scenario-reader-actions {
-        display: grid;
-        gap: .75rem;
-        margin-top: 1.1rem;
-        padding-top: 1rem;
-        border-top: 1px solid rgba(144, 97, 54, .22);
-      }
-
-      .scenario-reader-actions button {
-        min-height: 52px;
-        width: fit-content;
-        padding: .8rem 1.2rem;
-        color: #fdf6df;
-        background: #8e531b;
-        border: 2px solid #c99108;
-        border-radius: 0;
-        font-family: "Cinzel", Georgia, serif;
-        font-weight: 900;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-        cursor: pointer;
-      }
-
-      .scenario-reader-actions button:disabled {
-        cursor: wait;
-        opacity: .62;
-      }
-
-      .scenario-reader-status {
-        min-height: 1.3rem;
-        margin: 0;
-        color: #7d431c;
-        font-family: "Special Elite", monospace;
-        line-height: 1.55;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css?v=reader-to-carstairs-v4" />
   </head>
-  <body class="writers-page">
+  <body class="writers-page writers-v4-page">
     <nav class="nav" aria-label="Primary">
       <a href="index.html">Front Gate</a>
       <a href="scenario-desk.html">Scenario Desk</a>
@@ -54,364 +17,94 @@
       <a href="treatment-room.html">Treatment Room</a>
       <a href="carstairs-office.html">Carstairs' Office</a>
     </nav>
+
     <header class="inner-hero">
-      <p class="eyebrow">Property Under Consideration</p>
+      <p class="eyebrow">Reader-to-Writers Development Department</p>
       <h1>Writers' Room</h1>
-      <p class="lede">A property dossier prepared so the writers can use the Photoplay Rules to encourage its promise, diagnose its needs, and help write it forward.</p>
+      <p class="lede">The Reader reports what the property is. The Writers decide how it becomes a playable photoplay.</p>
     </header>
+
     <main>
-      <section class="band writers-room-dossier">
-        <article class="dossier-sheet">
+      <section class="band writers-v4-shell">
+        <article class="dossier-sheet writers-v4-property">
           <div class="form-letterhead">
-            <p>The Writers' Room</p>
-            <span id="property-kicker">Property Under Consideration</span>
+            <p>Property File</p>
+            <span id="property-kicker">Select a property</span>
           </div>
           <h2 id="property-title">Select Property</h2>
-          <p class="property-logline" id="property-logline">Choose a property currently on the Writers' Room desk.</p>
-          <blockquote id="property-notes"><strong>Submitter's Notes:</strong> No notes have been filed yet.</blockquote>
+          <p class="property-logline" id="property-logline">Choose a property currently in Reader or Writers' Room development.</p>
+          <blockquote id="property-notes"><strong>Submitter's Notes:</strong> No property selected.</blockquote>
           <section class="room-property-picker" id="writers-room-property-picker">
             <p class="eyebrow">Select Property</p>
             <div class="room-property-tiles" id="writers-room-property-tiles"></div>
-            <p class="room-property-picker__empty" id="writers-room-property-empty">Only current Writers' Room properties will appear here.</p>
+            <p class="room-property-picker__empty" id="writers-room-property-empty">Only Reader and Writers' Room properties appear here.</p>
           </section>
         </article>
 
-        <div class="scenario-reader-actions" id="scenario-reader-actions" hidden>
-          <p class="scenario-reader-status" id="scenario-reader-status" role="status" aria-live="polite"></p>
-        </div>
-
-        <article class="dossier-sheet reader-sheet">
-          <div class="form-letterhead">
-            <p>Synopsis - As Prepared by the Scenario Reader</p>
-            <span id="reader-name">Scenario reader assignment pending</span>
-          </div>
-          <p id="reader-synopsis">The scenario reader is preparing the file.</p>
-        </article>
-
-        <section class="analysis-grid">
-          <article class="analysis-sheet">
-            <p class="eyebrow">Key Dramatic Sequences</p>
-            <div id="sequence-list">
-              <div class="analysis-card">
-                <h3>Sequence 01</h3>
-                <p>Key dramatic sequences will appear here after the scenario reader has examined the material.</p>
-              </div>
-            </div>
-          </article>
-
-          <article class="analysis-sheet">
-            <p class="eyebrow">Character Archetypes</p>
-            <div id="archetype-list">
-              <div class="analysis-card">
-                <h3>Character 01</h3>
-                <p>Character archetypes will appear here after the scenario reader has examined the material.</p>
-              </div>
-            </div>
-          </article>
-        </section>
-
-        <section class="development-workflow" id="development-workflow" hidden>
+        <section class="reader-v2-report" id="reader-v2-report" hidden>
           <div class="section-head">
-            <p class="eyebrow">Photoplay Development Workflow</p>
-            <h2 id="development-stage-title">Property Examination</h2>
-            <p id="development-stage-summary">The writers are examining the raw material for its screen promise.</p>
+            <p class="eyebrow">Steps 1-5</p>
+            <h2>The Reader's Property Report</h2>
+            <p>The Reader records the source without rewriting it.</p>
           </div>
-          <div class="development-rail" id="development-rail" aria-label="Photoplay development stages"></div>
-          <div class="development-blueprint" id="development-blueprint"></div>
-          <div class="development-decisions" id="development-decisions"></div>
-          <div class="development-stage-records" id="development-stage-records"></div>
-          <div class="legacy-conference-notes" id="legacy-conference-notes" hidden></div>
-        </section>
-
-        <section class="conference-letter" aria-labelledby="letter-title">
-          <div class="letter-envelope">
-            <p class="eyebrow">Open the Development File</p>
-            <h2 id="letter-title">Put the property before the photoplaywrights.</h2>
-            <p>The writing staff will reshape the source material into a workable screen blueprint, one dramatic stage at a time. Their business is development; Carstairs alone decides production.</p>
-            <button type="button" id="send-letter">Begin Property Examination</button>
+          <div class="reader-v2-grid" id="reader-v2-content"></div>
+          <div class="reader-v2-actions" id="reader-v2-actions">
+            <textarea id="reader-v2-guidance" placeholder="Optional guidance for further reading..."></textarea>
+            <button type="button" data-reader-decision="send_to_writers">Send to Writers' Room</button>
+            <button type="button" data-reader-decision="further_reading">Return for Further Reading</button>
+            <button type="button" data-reader-decision="archive">Archive / Decline</button>
           </div>
         </section>
 
-        <section class="reader-roster is-locked" id="reader-roster" aria-label="Photoplaywright conference responses">
-          <div class="section-head">
-            <p class="eyebrow">Photoplaywright Development Notes</p>
-            <h2 id="conference-heading">Awaiting replies from the story staff.</h2>
-          </div>
-          <article class="memo memo--verdict" id="reader-verdict">
-            <p class="eyebrow">Writers' Development Notes</p>
-            <h3>Awaiting conference letter</h3>
-            <p>Send the conference letter. The photoplaywrights will study how the property can be strengthened for Treatment Room.</p>
-          </article>
-          <div class="writer-callboard" id="writer-callboard" hidden></div>
-          <article class="final-evaluation" id="final-evaluation" hidden>
-            <p class="eyebrow">Development Filing - Prepared by the Writers' Room</p>
-            <p class="final-stamp final-stamp--treatments" id="final-stamp">Ready for Treatment</p>
-            <blockquote id="final-quote">This has a heart, a wound, and a house big enough to echo with both. Send it upstairs.</blockquote>
-            <cite>- Miss Jeanette Marchmont, Chief of the Writing Room</cite>
-            <a class="button final-action" id="final-action" href="treatment-room.html">Prepare the Treatment</a>
-          </article>
+        <section class="reader-v2-pending" id="reader-v2-pending" hidden>
+          <p class="eyebrow">Reader's Desk</p>
+          <h2>The source has not yet received its new Reader's Report.</h2>
+          <p>Steps 1-5 will identify the property, summarize the source story, list its original cast, mark its existing screen value, and record its adaptation obstacles.</p>
+          <button type="button" id="run-reader-v2">Prepare the Reader's Report</button>
+          <p class="scenario-reader-status" id="reader-v2-status" role="status" aria-live="polite"></p>
+        </section>
 
-          <article class="reconference-workshop" id="reconference-workshop" hidden>
-            <p class="eyebrow">Marchmont's Development Docket</p>
-            <h2>One Guided Pass for This Stage</h2>
-            <p>Answer this stage's focused screen decisions once. After the timed review, the writers will file their advice, carry any cautions forward, and open the next development stage.</p>
+        <section class="writers-v4-workspace" id="writers-v4-workspace" hidden>
+          <aside class="writers-v4-progress">
+            <p class="eyebrow">Development Progress</p>
+            <div id="writers-v4-stage-list"></div>
+          </aside>
 
-            <div class="countdown countdown--reconference">
-              <span>Development Review Remaining</span>
-              <strong id="reconference-timer">36:00</strong>
-              <small id="review-calculation"></small>
+          <section class="writers-v4-center">
+            <div class="writers-v4-center-head">
+              <div>
+                <p class="eyebrow" id="writers-v4-step">Step 6</p>
+                <h2 id="writers-v4-title">Screen Gold and Reconstruction</h2>
+              </div>
+              <p id="writers-v4-status">Awaiting the Writers' Room.</p>
             </div>
-            <div class="development-filing-receipt" id="development-filing-receipt" hidden></div>
+            <div class="writers-v4-active" id="writers-v4-active"></div>
+            <p class="development-filing-error" id="writers-v4-error" role="alert" hidden></p>
+          </section>
 
-            <div class="reconference-feedback" id="reconference-feedback" hidden>
-              <div>
-                <h3>Marchmont Requests</h3>
-                <p>Give the clock mechanism a clearer first-act rule and make the midpoint discovery irreversible.</p>
-              </div>
-              <div>
-                <h3>Carrington Requests</h3>
-                <p>The father's guilt must force a moral decision, not merely create atmosphere.</p>
-              </div>
-              <div>
-                <h3>Thorncroft Requests</h3>
-                <p>Someone must pay for Elsa's choice. Duty without cost will not carry the final reel.</p>
-              </div>
-            </div>
-
-            <form class="reconference-form">
-              <div class="scrolling-work-panel scrolling-work-panel--docket" id="reconference-questions"></div>
-              <label>
-                Additional material for the writers
-                <p>Optional: add a broader adaptation choice, production angle, character clarification, or visual promise.</p>
-                <textarea id="reconference-note" placeholder="Add any general development note for the writers..."></textarea>
-              </label>
-              <div class="development-action-row">
-                <button type="button" id="updated-conference">Submit Stage Answers to the Writers</button>
-                <button type="button" class="development-complete-stage" id="complete-development-stage" hidden>Complete This Stage</button>
-              </div>
-              <p class="development-filing-error" id="development-filing-error" role="alert" hidden></p>
-            </form>
-          </article>
+          <aside class="writers-v4-control">
+            <p class="eyebrow">Decisions and Source Control</p>
+            <div id="writers-v4-decisions"></div>
+            <label class="writers-v4-notes">
+              User Notes
+              <textarea id="writers-v4-user-notes" placeholder="Binding adaptation notes carried through every later stage..."></textarea>
+            </label>
+            <button type="button" id="writers-v4-save-notes">File User Notes</button>
+            <details>
+              <summary>Original Source Report</summary>
+              <div id="writers-v4-source-report"></div>
+            </details>
+            <details>
+              <summary>Previous Versions</summary>
+              <div id="writers-v4-versions"></div>
+            </details>
+          </aside>
         </section>
       </section>
     </main>
-    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
-    <script src="script.js"></script>
-    <script>
-      (() => {
-        const requestedProperty = new URLSearchParams(window.location.search).get("property");
-        const shouldAutoRunReader = new URLSearchParams(window.location.search).get("reader") === "auto";
-        if (!requestedProperty || !/^SPC-/i.test(requestedProperty)) return;
 
-        const backendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
-        const readerActions = document.querySelector("#scenario-reader-actions");
-        const readerStatus = document.querySelector("#scenario-reader-status");
-        let activeLedgerProperty = null;
-        let readerHasStarted = false;
-
-        if (readerActions) readerActions.hidden = false;
-
-        function escapeHtml(value) {
-          return String(value || "").replace(/[&<>"']/g, (char) => ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            "\"": "&quot;",
-            "'": "&#39;"
-          })[char]);
-        }
-
-        function readLedger() {
-          return loadPropertyPacket(requestedProperty, ["source", "reader", "conference"])
-            .then((property) => ({ ok: true, property }));
-        }
-
-        function splitNumberedItems(value) {
-          const text = String(value || "").trim();
-          if (!text) return [];
-
-          const normalized = text.replace(/\r/g, "\n");
-          const matches = [...normalized.matchAll(/(?:^|[\n\r]|\s)(?:\d+[\.)]\s+|(?:Scene|Sequence|Key|Character)\s+\d+\s*[:\.)-]\s*)/gi)];
-
-          if (!matches.length) {
-            return normalized.split(/\n{2,}/).map((item) => item.trim()).filter(Boolean);
-          }
-
-          return matches.map((match, index) => {
-            const start = match.index + match[0].length;
-            const end = index < matches.length - 1 ? matches[index + 1].index : normalized.length;
-            return normalized.slice(start, end).trim();
-          }).filter(Boolean);
-        }
-
-        function renderAnalysisCards(container, value, emptyMessage, type) {
-          if (!container) return;
-          const items = splitNumberedItems(value);
-
-          if (!items.length) {
-            container.innerHTML = `<div class="analysis-card"><p>${escapeHtml(emptyMessage)}</p></div>`;
-            return;
-          }
-
-          container.innerHTML = items.map((item, index) => {
-            const [rawTitle, ...rest] = item.split(/\s+[–-]\s+|:\s+/);
-            const hasUsefulTitle = rest.length && rawTitle.length < 70;
-            const title = type === "sequence"
-              ? `Sequence ${String(index + 1).padStart(2, "0")}${hasUsefulTitle ? `: ${rawTitle}` : ""}`
-              : (hasUsefulTitle ? rawTitle : `Character ${String(index + 1).padStart(2, "0")}`);
-            const body = hasUsefulTitle ? rest.join(" - ") : item;
-
-            return `
-              <div class="analysis-card">
-                <h3>${escapeHtml(title)}</h3>
-                <p>${escapeHtml(body)}</p>
-              </div>
-            `;
-          }).join("");
-        }
-
-        function renderDynamicDossier(property) {
-          activeLedgerProperty = property;
-          const title = property.title || "Untitled Property";
-          const source = property.sourceType || "Unclassified Property";
-          const status = property.status || "Needs Reader";
-          const reader = property.reader || "Awaiting scenario reader assignment";
-          const notes = property.notes || "No submitter notes have been entered for this property.";
-          const logline = property.logline || "No logline has been entered for this property yet.";
-          const synopsis = property.readerSynopsis || "The scenario reader is preparing the file.";
-
-          document.title = `${title} | Writers' Room`;
-          document.querySelector("#property-kicker").textContent = `Property Under Consideration - ${source} - ${property.propertyId || requestedProperty}`;
-          document.querySelector("#property-title").textContent = title;
-          document.querySelector("#property-logline").textContent = logline;
-          document.querySelector("#property-notes").innerHTML = `<strong>Submitter's Notes:</strong> ${escapeHtml(notes)}`;
-          document.querySelector("#reader-name").textContent = reader;
-          document.querySelector("#reader-synopsis").textContent = synopsis;
-
-          renderAnalysisCards(
-            document.querySelector("#sequence-list"),
-            property.keyDramaticSequences,
-            "Key dramatic sequences will appear here after the scenario reader has examined the material.",
-            "sequence"
-          );
-
-          renderAnalysisCards(
-            document.querySelector("#archetype-list"),
-            property.characterArchetypes,
-            "Character archetypes will appear here after the scenario reader has examined the material.",
-            "character"
-          );
-
-          const conferenceHeading = document.querySelector("#conference-heading");
-          if (conferenceHeading) conferenceHeading.textContent = `${status}: awaiting conference letter.`;
-
-          const sendLetter = document.querySelector("#send-letter");
-          if (sendLetter) {
-            sendLetter.disabled = false;
-            sendLetter.textContent = "Send Conference Letter";
-          }
-
-          if (readerStatus && hasReaderReport(property)) {
-            readerStatus.textContent = "Scenario reader report is filed in the ledger.";
-          }
-
-          if (readerStatus && !hasReaderReport(property) && !readerHasStarted) {
-            readerStatus.textContent = "The scenario reader is preparing the file.";
-          }
-
-          if (typeof configureConferenceFromProperty === "function") {
-            configureConferenceFromProperty(property);
-          }
-
-          if (typeof renderSavedConferenceState === "function") {
-            renderSavedConferenceState(property);
-          }
-        }
-
-        function hasReaderReport(property) {
-          if (!property) return false;
-          return Boolean(
-            String(property.readerSynopsis || "").trim() &&
-            String(property.keyDramaticSequences || "").trim() &&
-            String(property.characterArchetypes || "").trim()
-          );
-        }
-
-        async function waitForReaderReport(startedAt) {
-          const elapsed = Date.now() - startedAt;
-          const payload = await readLedger();
-          if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
-
-          const property = payload.property || null;
-
-          if (property) renderDynamicDossier(property);
-          if (hasReaderReport(property)) {
-            readerStatus.textContent = "Scenario reader report is filed in the ledger.";
-            return;
-          }
-
-          if (elapsed >= 90000) {
-            readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
-            return;
-          }
-
-          readerStatus.textContent = "The reader is still preparing the synopsis. Checking the ledger again...";
-          window.setTimeout(() => {
-            waitForReaderReport(startedAt).catch(() => {
-              readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
-            });
-          }, 5000);
-        }
-
-        async function runScenarioReader() {
-          if (!readerStatus || readerHasStarted) return;
-
-          readerHasStarted = true;
-          readerStatus.textContent = "The scenario reader is examining the property file...";
-
-          try {
-            await fetch(backendUrl, {
-              method: "POST",
-              mode: "no-cors",
-              headers: { "Content-Type": "text/plain;charset=utf-8" },
-              body: JSON.stringify({
-                action: "runReader",
-                propertyId: requestedProperty,
-                title: activeLedgerProperty && activeLedgerProperty.title ? activeLedgerProperty.title : "",
-                sourceType: activeLedgerProperty && activeLedgerProperty.sourceType ? activeLedgerProperty.sourceType : "",
-                logline: activeLedgerProperty && activeLedgerProperty.logline ? activeLedgerProperty.logline : ""
-              })
-            });
-
-            readerStatus.textContent = "Reader report requested. Waiting for the ledger to receive the filed report...";
-            window.setTimeout(() => {
-              waitForReaderReport(Date.now()).catch(() => {
-                readerStatus.textContent = "Reader failed - manuscript took too long. Try a shorter pasted excerpt for now.";
-              });
-            }, 3000);
-          } catch (error) {
-            readerStatus.textContent = "The scenario reader could not be reached. Try once more.";
-          } finally {
-            // The reader remains a background filing action for this property.
-          }
-        }
-
-        readLedger()
-          .then((payload) => {
-            if (!payload || !payload.ok) return;
-            const property = payload.property || null;
-            if (property) {
-              renderDynamicDossier(property);
-              if (shouldAutoRunReader && !hasReaderReport(property)) {
-                runScenarioReader();
-              }
-            }
-          })
-          .catch(() => {
-            const readerName = document.querySelector("#reader-name");
-            if (readerName) readerName.textContent = "Ledger unavailable - dossier pending";
-          });
-      })();
-    </script>
+    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL - PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS - MCMXXI</span></footer>
+    <script src="script.js?v=reader-to-carstairs-v4"></script>
+    <script src="writers-room-v4.js?v=reader-to-carstairs-v4"></script>
   </body>
 </html>

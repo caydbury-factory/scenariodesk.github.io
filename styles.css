@@ -2165,6 +2165,331 @@ footer {
   border: 1px solid rgba(144, 97, 54, .24);
 }
 
+/* Reader-to-Carstairs workflow v4 */
+.writers-v4-shell {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.reader-v2-report,
+.reader-v2-pending,
+.writers-v4-workspace {
+  background: #f8f1df;
+  border: 1px solid rgba(126, 72, 25, .34);
+}
+
+.reader-v2-report[hidden],
+.reader-v2-pending[hidden],
+.writers-v4-workspace[hidden] {
+  display: none !important;
+}
+
+.reader-v2-report,
+.reader-v2-pending {
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.reader-v2-grid,
+.reader-v2-cards,
+.writers-v4-analysis-grid,
+.writers-v4-choice-grid,
+.writers-v4-form-grid,
+.pictorial-continuity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.reader-v2-grid > article,
+.source-control-card,
+.writers-v4-analysis-grid > article,
+.writers-v4-control article,
+.pictorial-continuity-grid > article {
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(126, 72, 25, .26);
+}
+
+.reader-v2-grid > article:nth-child(2),
+.reader-v2-grid > article:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+.reader-v2-actions,
+.writers-v4-action-row,
+.scene-board-actions,
+.scene-card-controls,
+.cast-toolbar,
+.scene-board-toolbar,
+.scene-arrangement-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  align-items: center;
+}
+
+.reader-v2-actions {
+  margin-top: 1rem;
+}
+
+.reader-v2-actions textarea {
+  flex: 1 1 100%;
+  min-height: 88px;
+}
+
+.writers-v4-workspace {
+  display: grid;
+  grid-template-columns: minmax(190px, .75fr) minmax(0, 2.4fr) minmax(220px, 1fr);
+  min-height: 760px;
+}
+
+.writers-v4-progress,
+.writers-v4-control {
+  padding: 1rem;
+  background: #efe3ca;
+}
+
+.writers-v4-progress {
+  border-right: 1px solid rgba(126, 72, 25, .3);
+}
+
+.writers-v4-control {
+  border-left: 1px solid rgba(126, 72, 25, .3);
+}
+
+.writers-v4-center {
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.writers-v4-center-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(126, 72, 25, .3);
+}
+
+#writers-v4-stage-list {
+  display: grid;
+  gap: .45rem;
+}
+
+.writers-v4-stage {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: .1rem .5rem;
+  width: 100%;
+  min-height: 0;
+  padding: .65rem;
+  color: #542d18;
+  text-align: left;
+  background: #fffaf0;
+  border: 1px solid rgba(126, 72, 25, .3);
+}
+
+.writers-v4-stage span {
+  grid-row: 1 / 3;
+  color: #9a6b1d;
+}
+
+.writers-v4-stage small {
+  font-family: "Special Elite", monospace;
+  text-transform: capitalize;
+}
+
+.writers-v4-stage.is-active {
+  color: #fff8df;
+  background: #713b17;
+  border-color: #c99108;
+}
+
+.writers-v4-stage.is-approved {
+  border-left: 5px solid #6d7b3b;
+}
+
+.writers-v4-stage.is-provisional {
+  border-left: 5px solid #99722a;
+  border-style: dashed;
+}
+
+.writers-v4-active {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.writers-v4-active.is-filing {
+  opacity: .64;
+  pointer-events: none;
+}
+
+.writers-v4-choice {
+  display: block;
+  cursor: pointer;
+}
+
+.writers-v4-choice input {
+  position: absolute;
+  opacity: 0;
+}
+
+.writers-v4-choice span {
+  display: block;
+  height: 100%;
+  padding: 1rem;
+  background: #fffdf7;
+  border: 2px solid rgba(126, 72, 25, .25);
+}
+
+.writers-v4-choice input:checked + span {
+  background: #fff6d6;
+  border-color: #a67616;
+  box-shadow: inset 0 0 0 2px rgba(166, 118, 22, .2);
+}
+
+.provenance {
+  display: inline-block;
+  padding: .18rem .4rem;
+  font-family: "Special Elite", monospace;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+.provenance--source { color: #406552; }
+.provenance--adapted { color: #805221; }
+.provenance--invented { color: #874454; }
+
+.writers-v4-active textarea,
+.writers-v4-active input,
+.writers-v4-active select,
+.writers-v4-control textarea {
+  width: 100%;
+  color: #2d211a;
+  background: #fffefa;
+  border: 1px solid rgba(126, 72, 25, .34);
+}
+
+.writers-v4-active textarea {
+  min-height: 90px;
+}
+
+.writers-v4-form-grid label,
+.writers-v4-rules label,
+.photoplay-cast-card label,
+.scene-location-card label,
+.writers-v4-notes {
+  display: grid;
+  gap: .35rem;
+  color: #7d431c;
+  font-family: "Special Elite", monospace;
+}
+
+.photoplay-cast-board,
+.scene-location-board {
+  display: grid;
+  gap: .8rem;
+  max-height: 70vh;
+  overflow: auto;
+  padding-right: .35rem;
+}
+
+.photoplay-cast-card,
+.scene-location-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(126, 72, 25, .28);
+}
+
+.scene-location-card {
+  cursor: grab;
+}
+
+.scene-location-card header,
+.scene-card-controls {
+  grid-column: 1 / -1;
+}
+
+.scene-location-card header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.brief-synopsis-editor {
+  min-height: 420px !important;
+  line-height: 1.7;
+}
+
+.writers-v4-control {
+  display: grid;
+  align-content: start;
+  gap: .75rem;
+}
+
+.writers-v4-control details {
+  padding: .7rem;
+  background: #fffaf0;
+  border: 1px solid rgba(126, 72, 25, .25);
+}
+
+.writers-v4-control summary {
+  cursor: pointer;
+  color: #713b17;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 800;
+}
+
+.treatment-ready-filing {
+  padding: 2rem;
+  text-align: center;
+  background: #fffdf7;
+  border: 2px solid #a67616;
+}
+
+@media (max-width: 1050px) {
+  .writers-v4-workspace {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+
+  .writers-v4-control {
+    grid-column: 1 / -1;
+    border-top: 1px solid rgba(126, 72, 25, .3);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .reader-v2-grid,
+  .reader-v2-cards,
+  .writers-v4-analysis-grid,
+  .writers-v4-choice-grid,
+  .writers-v4-form-grid,
+  .pictorial-continuity-grid,
+  .photoplay-cast-card,
+  .scene-location-card {
+    grid-template-columns: 1fr;
+  }
+
+  .writers-v4-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .writers-v4-progress {
+    border-right: 0;
+    border-bottom: 1px solid rgba(126, 72, 25, .3);
+  }
+
+  #writers-v4-stage-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .development-question.has-filing-error {
   background: #fff4ed;
   border-color: #a43827;

@@ -221,6 +221,13 @@ function propertyHref(property) {
   const key = property.propertyId || property.title || "";
   const status = String(property.status || "");
   const carstairsVerdict = String(property.carstairsVerdict || "");
+  const savedExecutivePacket = parseSavedCarstairs(property) || {};
+  if (/writers room development/i.test(status) && savedExecutivePacket.revisionTargetStage && savedExecutivePacket.revisionTargetStage !== "treatment") {
+    return `writers-room.html?property=${encodeURIComponent(key)}`;
+  }
+  if (/treatment ready/i.test(status) && savedExecutivePacket.revisionTargetStage === "treatment") {
+    return `treatment-room.html?property=${encodeURIComponent(key)}`;
+  }
   const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
   const hasExecutiveRewrite = /executive rewrite/i.test(status) || /rewrite/i.test(carstairsVerdict);
   if (hasExecutiveRewrite) {
@@ -276,7 +283,33 @@ function isExecutiveRewriteProperty(property) {
 
 function isWritersRoomSelectorProperty(property) {
   const status = lowerText(property && property.status);
-  return /needs reader|conference ready|needs conference|needs development|development questions filed|development under review/.test(status) || isConferenceRepairProperty(property);
+  return /needs reader|reader review|needs further reading|writers room ready|writers room development|conference ready|needs conference|needs development|development questions filed|development under review/.test(status) || isConferenceRepairProperty(property);
+}
+
+function restoreReaderProperty(propertyId) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `restoreReader_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Reader restoration timed out."));
+    }, 30000);
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Reader restoration request failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=restoreReader&propertyId=${encodeURIComponent(propertyId)}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
 }
 
 function canOpenInWritersRoom(property) {
@@ -286,7 +319,9 @@ function canOpenInWritersRoom(property) {
 function isTreatmentRoomProperty(property) {
   const status = lowerText(property && property.status);
   const treatmentStatus = lowerText(property && property.treatmentStatus);
-  if (isExecutiveRewriteProperty(property)) return false;
+  const executivePacket = parseSavedCarstairs(property) || {};
+  const treatmentReturn = /treatment ready/.test(status) && executivePacket.revisionTargetStage === "treatment";
+  if (isExecutiveRewriteProperty(property) && !treatmentReturn) return false;
   if (/greenlit|wastebasket/.test(status)) return false;
   return /treatment ready|treatment applied/.test(status) || /treatment ready|treatment applied/.test(treatmentStatus);
 }
@@ -395,8 +430,19 @@ function renderScenarioDesk(properties) {
     const score = property.suitabilityScore || "Pending";
     const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
-    const actionLabel = hasCarstairs ? "Open Carstairs' Office" : hasTreatment ? "Open Treatment Room" : "Open Writers' Room";
+    const targetedWriterReturn = /writers room development/i.test(property.status || "") && savedCarstairs?.revisionTargetStage && savedCarstairs.revisionTargetStage !== "treatment";
+    const targetedTreatmentReturn = /treatment ready/i.test(property.status || "") && savedCarstairs?.revisionTargetStage === "treatment";
+    const actionLabel = targetedWriterReturn
+      ? "Open Returned Writers' Stage"
+      : targetedTreatmentReturn
+      ? "Open Returned Treatment"
+      : hasCarstairs
+      ? "Open Carstairs' Office"
+      : hasTreatment
+      ? "Open Treatment Room"
+      : "Open Writers' Room";
     const isDevelopmentPaused = (/development paused/i.test(property.status || "") || isLegacyWriterWastebasket) && !/waste/i.test(property.carstairsVerdict || "");
+    const isReaderArchive = /reader archive/i.test(property.status || "");
 
     const cardBody = `
         <div class="property-card__clip"></div>
@@ -411,8 +457,9 @@ function renderScenarioDesk(properties) {
         <p>${escapeHtml(summary)}</p>
         <span class="button button--small">${escapeHtml(actionLabel)}</span>
         ${isDevelopmentPaused ? `<button type="button" class="button button--small" data-restore-development="${escapeHtml(property.propertyId)}">Restore to Writers' Room</button>` : ""}
+        ${isReaderArchive ? `<button type="button" class="button button--small" data-restore-reader="${escapeHtml(property.propertyId)}">Restore to Reader's Desk</button>` : ""}
     `;
-    return isDevelopmentPaused
+    return isDevelopmentPaused || isReaderArchive
       ? `<article class="property-card ${index === 0 ? "property-card--active" : ""}">${cardBody}</article>`
       : `<a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">${cardBody}</a>`;
   }).join("");
@@ -923,6 +970,22 @@ function loadPropertyPacket(propertyId, sections = []) {
     };
     script.src = `${scenarioBackendUrl}?action=propertyPacket&propertyId=${encodeURIComponent(propertyId)}&sections=${encodeURIComponent(sections.join(","))}&callback=${encodeURIComponent(callbackName)}`;
     document.body.appendChild(script);
+  });
+
+  board.querySelectorAll("[data-restore-reader]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const propertyId = button.dataset.restoreReader || "";
+      button.disabled = true;
+      button.textContent = "Restoring Reader File";
+      try {
+        const payload = await restoreReaderProperty(propertyId);
+        if (!payload || !payload.ok) throw new Error(payload?.error || "Reader restoration was not accepted.");
+        window.location.href = `writers-room.html?property=${encodeURIComponent(propertyId)}`;
+      } catch (error) {
+        button.disabled = false;
+        button.textContent = error?.message || "Restore to Reader's Desk";
+      }
+    });
   });
 }
 
@@ -2404,6 +2467,10 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   document.querySelector("#treatment-doc-type").textContent = blueprint.type || "Photoplay Treatment";
   document.querySelector("#treatment-doc-reels").textContent = blueprint.footageReels || blueprint.reelsEstimate || "The Standard Feature - 5 reels, 5,000 feet, 55 to 75 minutes";
   document.querySelector("#treatment-doc-theme").textContent = blueprint.theme || file.logline;
+  const picturePromise = document.querySelector("#treatment-picture-promise");
+  const producerMemo = document.querySelector("#treatment-producer-memo");
+  if (picturePromise) picturePromise.textContent = blueprint.picturePromise || "The approved photoplay architecture is ready for executive consideration.";
+  if (producerMemo) producerMemo.textContent = blueprint.producerMemo || "";
 
   document.querySelector("#treatment-cast").innerHTML = cast.map((item) => {
     const name = Array.isArray(item) ? item[0] : item.name;
@@ -2778,7 +2845,7 @@ function showCarstairsVerdict(kind, quote) {
   if (!carstairsVerdict || !carstairsStamp || !carstairsQuote || !carstairsAction) return;
   const labels = {
     greenlight: ["Greenlight", "final-stamp final-stamp--treatments", "Return to the Scenario Desk", "scenario-desk.html"],
-    rewrite: ["Executive Rewrite", "final-stamp final-stamp--reconference", "Review Executive Questions", "#carstairs-rewrite"],
+    rewrite: ["Needs Revision", "final-stamp final-stamp--reconference", "Return to Ordered Stage", "#carstairs-rewrite"],
     wastebasket: ["Wastebasket", "final-stamp final-stamp--wastebasket", "Return to the Scenario Desk", "scenario-desk.html"]
   };
   const [stamp, className, action, href] = labels[kind] || labels.greenlight;
@@ -2922,9 +2989,21 @@ function renderSavedCarstairsMemo(payload) {
   carstairsMemo.hidden = false;
   if (payload.verdict) {
     showCarstairsVerdict(payload.verdict, payload.quote || "");
+    if (payload.verdict === "rewrite" && carstairsAction) {
+      const target = payload.revisionTargetStage || "treatment";
+      const writersTarget = target !== "treatment";
+      carstairsAction.textContent = writersTarget
+        ? `Return to ${target.replace(/_/g, " ")}`
+        : "Return to Treatment Room";
+      carstairsAction.href = writersTarget
+        ? `writers-room.html?property=${encodeURIComponent(getCarstairsProperty())}`
+        : `treatment-room.html?property=${encodeURIComponent(getCarstairsProperty())}`;
+      if (carstairsRewrite) carstairsRewrite.hidden = true;
+      carstairsOpinion.insertAdjacentHTML("beforeend", `<p><strong>Ordered return stage:</strong> ${escapeHtml(target.replace(/_/g, " "))}</p>`);
+    }
     renderCarstairsReasonsBlock(payload);
     renderCarstairsAppealBlock(payload);
-    renderCarstairsRewriteForm(payload, payload.verdict === "rewrite");
+    if (payload.verdict !== "rewrite") renderCarstairsRewriteForm(payload, false);
   } else {
     if (carstairsVerdict) carstairsVerdict.hidden = true;
     if (carstairsReasons) carstairsReasons.hidden = true;
