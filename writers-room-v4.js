@@ -215,6 +215,13 @@
     if (pendingSection) pendingSection.hidden = hasReport;
     if (workspace) workspace.hidden = !(hasReport && reader.decision === "send_to_writers");
     if (hasReport) renderReaderReport(reader.report);
+    if (!hasReport && readerStatus) {
+      if (String(state.property?.status || "").toLowerCase() === "reader failed") {
+        readerStatus.textContent = reader?.error || "The Reader could not complete this report. Try the filing again.";
+      } else if (String(state.property?.status || "").toLowerCase() === "reader reading") {
+        readerStatus.textContent = "The Reader is examining the complete source file...";
+      }
+    }
   }
 
   function renderPropertyHeader() {
@@ -614,13 +621,23 @@
     const button = document.querySelector("#run-reader-v2");
     button.disabled = true;
     readerStatus.textContent = "The Reader is examining the complete source file...";
-    await fetch(scenarioBackendUrl, {
-      method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "runReader", propertyId })
-    });
+    try {
+      await fetch(scenarioBackendUrl, {
+        method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: "runReader", propertyId })
+      });
+    } catch (error) {
+      button.disabled = false;
+      throw new Error(`The Reader request could not reach the office: ${error?.message || error}`);
+    }
     const started = Date.now();
-    while (Date.now() - started < 180000) {
+    while (Date.now() - started < 300000) {
       const property = await loadPropertyPacket(propertyId, ["source", "reader"]);
+      if (String(property.status || "").toLowerCase() === "reader failed") {
+        button.disabled = false;
+        readerStatus.textContent = property.readerError || "The Reader could not complete this report.";
+        throw new Error(readerStatus.textContent);
+      }
       if (property.readerPacketVersion == 2 && property.readerReport) {
         await loadProperty();
         return;
@@ -628,7 +645,7 @@
       await new Promise((resolve) => window.setTimeout(resolve, 4000));
     }
     button.disabled = false;
-    readerStatus.textContent = "The Reader did not file the report before the office clock expired. Try again.";
+    readerStatus.textContent = "The Reader is still working, but the page stopped waiting after five minutes. Reopen this property to check the filed report before trying again.";
   }
 
   async function routeReader(decision) {
@@ -665,7 +682,12 @@
     }
     state.property = await loadPropertyPacket(propertyId, ["source", "reader", "conference"]);
     state.readerPacket = state.property.readerPacketVersion == 2
-      ? { packetVersion: 2, report: state.property.readerReport, decision: state.property.readerDecision }
+      ? {
+          packetVersion: 2,
+          report: state.property.readerReport,
+          decision: state.property.readerDecision,
+          error: state.property.readerError || ""
+        }
       : null;
     const savedConference = state.property.conferenceJson ? JSON.parse(state.property.conferenceJson) : null;
     state.packet = savedConference?.packetVersion === 4 ? savedConference : null;
