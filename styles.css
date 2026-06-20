@@ -558,7 +558,9 @@ fieldset span {
 .carstairs-verdict,
 .carstairs-reasons,
 .carstairs-rewrite,
-.carstairs-appeal {
+.carstairs-appeal,
+.carstairs-assessment,
+.carstairs-improvements {
   padding: clamp(1.1rem, 3vw, 1.8rem);
   background: linear-gradient(145deg, rgba(253, 246, 224, .96), rgba(213, 188, 137, .92));
   border: 1px solid rgba(240, 204, 119, .36);
@@ -578,7 +580,8 @@ fieldset span {
 .carstairs-memo h2,
 .carstairs-reasons h2,
 .carstairs-rewrite h2,
-.carstairs-appeal h2 {
+.carstairs-appeal h2,
+.carstairs-improvements h2 {
   color: #5a2618;
 }
 
@@ -587,7 +590,8 @@ fieldset span {
 .carstairs-memo p:not(.eyebrow),
 .carstairs-reasons p:not(.eyebrow),
 .carstairs-rewrite p:not(.eyebrow),
-.carstairs-appeal p:not(.eyebrow) {
+.carstairs-appeal p:not(.eyebrow),
+.carstairs-improvements p:not(.eyebrow) {
   max-width: 760px;
   line-height: 1.7;
 }
@@ -681,6 +685,116 @@ fieldset span {
 .carstairs-rewrite .reconference-form,
 .carstairs-appeal .reconference-form {
   margin-top: 1.2rem;
+}
+
+.carstairs-assessment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.carstairs-assessment > div {
+  padding: 1rem;
+  background: rgba(255, 253, 247, .72);
+  border: 1px solid rgba(125, 67, 28, .25);
+}
+
+.carstairs-assessment li {
+  margin-bottom: .55rem;
+  line-height: 1.6;
+}
+
+.carstairs-package-grid,
+.carstairs-improvement-grid {
+  display: grid;
+  gap: .85rem;
+  margin: 1rem 0;
+}
+
+.carstairs-package-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.carstairs-improvement-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-height: 620px;
+  overflow-y: auto;
+  padding-right: .35rem;
+}
+
+.carstairs-package,
+.carstairs-improvement {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .45rem .75rem;
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(125, 67, 28, .28);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.carstairs-package.is-selected,
+.carstairs-improvement.is-selected {
+  border: 2px solid #8e531b;
+  background: #f8edcf;
+}
+
+.carstairs-package input,
+.carstairs-improvement input {
+  width: auto;
+  grid-row: 1 / span 4;
+}
+
+.carstairs-package strong,
+.carstairs-improvement strong,
+.carstairs-package span,
+.carstairs-improvement span,
+.carstairs-package small,
+.carstairs-improvement small {
+  grid-column: 2;
+}
+
+.carstairs-improvement__category {
+  color: #986c4d;
+  font-family: "Special Elite", monospace;
+  text-transform: uppercase;
+}
+
+.carstairs-binding-notes {
+  display: grid;
+  gap: .45rem;
+  margin-top: 1rem;
+  color: #5a2618;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 700;
+}
+
+.carstairs-binding-notes textarea {
+  min-height: 130px;
+}
+
+.carstairs-revision-preview {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f8efdc;
+  border: 1px solid rgba(125, 67, 28, .28);
+}
+
+.carstairs-revision-preview li {
+  margin-bottom: .55rem;
+  line-height: 1.6;
+}
+
+#approve-carstairs-improvements {
+  min-height: 56px;
+  color: #fffdf7;
+  background: #5a2618;
+  border: 2px solid #c99108;
+  border-radius: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 footer {
@@ -2703,6 +2817,64 @@ footer {
   line-height: 1.65;
 }
 
+.treatment-development-reference,
+.treatment-implementation {
+  margin: 1.3rem 0;
+}
+
+.treatment-reference-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+}
+
+.treatment-reference-grid article,
+.treatment-implementation article {
+  padding: 1rem;
+  background: #f8efdc;
+  border: 1px solid rgba(144, 97, 54, .24);
+}
+
+.treatment-reference-grid h3,
+.treatment-implementation h3 {
+  color: #7d431c;
+  font-size: 1rem;
+}
+
+.reel-breakdown {
+  max-height: 920px;
+  overflow-y: auto;
+  padding-right: .4rem;
+}
+
+.treatment-movement {
+  scroll-margin-top: 1rem;
+}
+
+.treatment-movement__body {
+  display: grid;
+  gap: .8rem;
+}
+
+.treatment-movement__body p {
+  margin: 0;
+}
+
+.treatment-scene-coverage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  color: #6a5441;
+  font-family: "Special Elite", monospace;
+}
+
+.treatment-scene-coverage span {
+  padding: .18rem .4rem;
+  background: #ead8ad;
+  border: 1px solid rgba(125, 67, 28, .22);
+}
+
 .treatment-signoff {
   margin-top: 1.4rem;
   padding: 1.2rem;
@@ -2767,7 +2939,11 @@ footer {
 
   .review-estimates,
   .reconference-feedback,
-  .treatment-writers {
+  .treatment-writers,
+  .treatment-reference-grid,
+  .carstairs-assessment,
+  .carstairs-package-grid,
+  .carstairs-improvement-grid {
     grid-template-columns: 1fr;
   }
 }

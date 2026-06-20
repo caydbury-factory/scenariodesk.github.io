@@ -62,22 +62,14 @@
           <div id="carstairs-reasons-list"></div>
         </article>
 
-        <article class="carstairs-appeal" id="carstairs-appeal" hidden>
-          <p class="eyebrow">Executive Appeal</p>
-          <h2>Request Reconsideration</h2>
-          <p>One appeal may be filed if the treatment has a production virtue Carstairs may have undervalued.</p>
-          <button type="button" id="open-carstairs-appeal">Request Reconsideration</button>
-          <div class="reconference-form" id="carstairs-appeal-form" hidden>
-            <label>
-              What did Carstairs overlook?
-              <textarea id="carstairs-appeal-overlooked" placeholder="Name the dramatic strength, audience feeling, or photoplay promise that deserves another look."></textarea>
-            </label>
-            <label>
-              What production value or photoplay rule deserves a second look?
-              <textarea id="carstairs-appeal-value" placeholder="Point to spectacle, moral force, star value, title appeal, emotional clarity, or another rule from the packet."></textarea>
-            </label>
-            <button type="button" id="submit-carstairs-appeal">Submit Reconsideration</button>
-            <p class="scenario-reader-status" id="carstairs-appeal-status" aria-live="polite"></p>
+        <article class="carstairs-assessment" id="carstairs-assessment" hidden>
+          <div>
+            <p class="eyebrow">What Commands the Screen</p>
+            <ul id="carstairs-successes"></ul>
+          </div>
+          <div>
+            <p class="eyebrow">What Still Requires Production Work</p>
+            <ul id="carstairs-weaknesses"></ul>
           </div>
         </article>
 
@@ -89,20 +81,19 @@
           <a class="button" id="carstairs-action" href="scenario-desk.html">Return to the Scenario Desk</a>
         </article>
 
-        <article class="carstairs-rewrite" id="carstairs-rewrite" hidden>
-          <p class="eyebrow">Executive Rewrite Order</p>
-          <h2>One return upstairs. No second mercy.</h2>
-          <p>Carstairs will look at the material once more if the weakness is repaired within the ordered time.</p>
-
-          <div class="countdown countdown--reconference">
-            <span>Executive Return Deadline</span>
-            <strong id="carstairs-timer">30:00</strong>
-          </div>
-
-          <div class="reconference-form">
-            <div id="carstairs-questions"></div>
-            <button type="button" id="resubmit-carstairs">Send Back Upstairs</button>
-          </div>
+        <article class="carstairs-improvements" id="carstairs-improvements" hidden>
+          <p class="eyebrow">Executive Production Development</p>
+          <h2>Choose the picture Carstairs means to strengthen.</h2>
+          <p>Select one of his two coherent production plans, or assemble a custom order from the individual improvements.</p>
+          <div class="carstairs-package-grid" id="carstairs-package-grid"></div>
+          <div class="carstairs-improvement-grid" id="carstairs-improvement-grid"></div>
+          <label class="carstairs-binding-notes">
+            Binding notes to Treatment Room
+            <textarea id="carstairs-selection-notes" placeholder="Clarify how the selected improvements should be balanced without changing the approved story architecture."></textarea>
+          </label>
+          <div class="carstairs-revision-preview" id="carstairs-revision-preview"></div>
+          <button type="button" id="approve-carstairs-improvements">Approve the Executive Production Order</button>
+          <p class="scenario-reader-status" id="carstairs-selection-status" aria-live="polite"></p>
         </article>
       </section>
     </main>

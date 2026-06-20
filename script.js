@@ -230,13 +230,17 @@ function propertyHref(property) {
   }
   const hasFinalCarstairs = Boolean(parseSavedCarstairs(property)) || /greenlit|wastebasket/i.test(status) || /greenlight|wastebasket/i.test(carstairsVerdict);
   const hasExecutiveRewrite = /executive rewrite/i.test(status) || /rewrite/i.test(carstairsVerdict);
-  if (hasExecutiveRewrite) {
+  const hasExecutiveRevision = /executive revision/i.test(status) || /executive_revision|executive revision/i.test(carstairsVerdict);
+  if (/treatment revision ready/i.test(status)) {
+    return `treatment-room.html?property=${encodeURIComponent(key)}`;
+  }
+  if (hasExecutiveRewrite || hasExecutiveRevision) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
   }
   if (hasFinalCarstairs) {
     return `carstairs-office.html?property=${encodeURIComponent(key)}`;
   }
-  const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || /treatment ready|treatment applied/i.test(status) || Boolean(parseSavedTreatment(property));
+  const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || /treatment ready|treatment applied|treatment filed|carstairs review/i.test(status) || Boolean(parseSavedTreatment(property));
   if (hasTreatment) {
     return property.treatmentUrl || `treatment-room.html?property=${encodeURIComponent(key)}`;
   }
@@ -278,7 +282,9 @@ function isExecutiveRewriteProperty(property) {
   const verdict = lowerText(property && property.carstairsVerdict);
   const savedCarstairs = parseSavedCarstairs(property) || {};
   const packetVerdict = lowerText(savedCarstairs.verdict || savedCarstairs.statusLabel);
-  return /executive rewrite/.test(status) || /rewrite/.test(verdict) || /rewrite/.test(packetVerdict);
+  return /executive rewrite|executive revision/.test(status)
+    || /rewrite|executive_revision|executive revision/.test(verdict)
+    || /rewrite|executive_revision|executive revision/.test(packetVerdict);
 }
 
 function isWritersRoomSelectorProperty(property) {
@@ -321,18 +327,20 @@ function isTreatmentRoomProperty(property) {
   const treatmentStatus = lowerText(property && property.treatmentStatus);
   const executivePacket = parseSavedCarstairs(property) || {};
   const treatmentReturn = /treatment ready/.test(status) && executivePacket.revisionTargetStage === "treatment";
-  if (isExecutiveRewriteProperty(property) && !treatmentReturn) return false;
+  const collaborativeReturn = /treatment revision ready/.test(status) || /treatment revision ready/.test(treatmentStatus);
+  if (isExecutiveRewriteProperty(property) && !treatmentReturn && !collaborativeReturn) return false;
   if (/greenlit|wastebasket/.test(status)) return false;
-  return /treatment ready|treatment applied/.test(status) || /treatment ready|treatment applied/.test(treatmentStatus);
+  return /treatment ready|treatment applied|treatment filed|treatment revision ready|carstairs review/.test(status)
+    || /treatment ready|treatment applied|treatment filed|treatment revision ready|revised treatment filed/.test(treatmentStatus);
 }
 
 function isCarstairsRoomProperty(property) {
   const status = lowerText(property && property.status);
   const treatmentStatus = lowerText(property && property.treatmentStatus);
   const verdict = lowerText(property && property.carstairsVerdict);
-  return /treatment applied|executive rewrite|greenlit|wastebasket/.test(status)
-    || /treatment applied/.test(treatmentStatus)
-    || /rewrite|greenlight|wastebasket/.test(verdict)
+  return /treatment applied|treatment filed|carstairs review|executive rewrite|executive revision|greenlit|wastebasket/.test(status)
+    || /treatment applied|treatment filed|revised treatment filed|executive revision/.test(treatmentStatus)
+    || /rewrite|executive_revision|executive revision|greenlight|wastebasket/.test(verdict)
     || Boolean(parseSavedCarstairs(property));
 }
 
@@ -415,7 +423,7 @@ function renderScenarioDesk(properties) {
 
   board.innerHTML = properties.map((property, index) => {
     const savedCarstairs = parseSavedCarstairs(property);
-    const hasCarstairs = Boolean(savedCarstairs) || /greenlit|executive rewrite/i.test(property.status || "") || /greenlight|rewrite|wastebasket/i.test(property.carstairsVerdict || "");
+    const hasCarstairs = Boolean(savedCarstairs) || /greenlit|executive rewrite|executive revision|carstairs review/i.test(property.status || "") || /greenlight|rewrite|executive_revision|executive revision|wastebasket/i.test(property.carstairsVerdict || "");
     const isLegacyWriterWastebasket = /wastebasket/i.test(property.status || "") && !hasCarstairs;
     const hasTreatment = /treatment/i.test(property.treatmentStatus || "") || Boolean(parseSavedTreatment(property));
     const stamp = isLegacyWriterWastebasket
@@ -423,7 +431,7 @@ function renderScenarioDesk(properties) {
       : hasCarstairs
       ? (savedCarstairs && savedCarstairs.statusLabel ? savedCarstairs.statusLabel : (property.status || "Greenlit"))
       : hasTreatment
-      ? "Treatment Applied"
+      ? (property.treatmentStatus || "Treatment Filed")
       : (property.status || "Needs Reader");
     const source = property.sourceType || "Unclassified Property";
     const reader = property.reader || "Awaiting assignment";
@@ -432,7 +440,10 @@ function renderScenarioDesk(properties) {
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
     const targetedWriterReturn = /writers room development/i.test(property.status || "") && savedCarstairs?.revisionTargetStage && savedCarstairs.revisionTargetStage !== "treatment";
     const targetedTreatmentReturn = /treatment ready/i.test(property.status || "") && savedCarstairs?.revisionTargetStage === "treatment";
-    const actionLabel = targetedWriterReturn
+    const collaborativeTreatmentReturn = /treatment revision ready/i.test(property.status || property.treatmentStatus || "");
+    const actionLabel = collaborativeTreatmentReturn
+      ? "Prepare Revised Treatment"
+      : targetedWriterReturn
       ? "Open Returned Writers' Stage"
       : targetedTreatmentReturn
       ? "Open Returned Treatment"
@@ -2057,6 +2068,8 @@ function showCarstairsDeskMessage(message, detail) {
   if (carstairsAppeal) carstairsAppeal.hidden = true;
   if (carstairsAppealForm) carstairsAppealForm.hidden = true;
   if (carstairsReasons) carstairsReasons.hidden = true;
+  if (carstairsAssessment) carstairsAssessment.hidden = true;
+  if (carstairsImprovements) carstairsImprovements.hidden = true;
 }
 
 function initWritersRoomSelector() {
@@ -2393,6 +2406,9 @@ const officialTreatment = document.querySelector("#official-treatment");
 const executiveRevision = document.querySelector("#executive-revision");
 const executiveRevisionMemo = document.querySelector("#executive-revision-memo");
 const executiveRevisionQuestions = document.querySelector("#executive-revision-questions");
+const treatmentReferenceGrid = document.querySelector("#treatment-reference-grid");
+const treatmentImplementation = document.querySelector("#treatment-implementation");
+const treatmentImplementationList = document.querySelector("#treatment-implementation-list");
 let activeTreatmentProperty = null;
 
 const treatmentBlueprints = {
@@ -2460,7 +2476,11 @@ function treatmentWritersForRequest() {
 function renderTreatmentDocument(file, treatment, authors, key) {
   const blueprint = treatment || treatmentBlueprints[key] || treatmentBlueprints["dangerous-kisses"];
   const cast = Array.isArray(blueprint.cast) ? blueprint.cast : [];
-  const reels = Array.isArray(blueprint.reels) ? blueprint.reels : [];
+  const reels = Array.isArray(blueprint.movements) && blueprint.movements.length
+    ? blueprint.movements
+    : (Array.isArray(blueprint.reels) ? blueprint.reels : []);
+  const development = parseSavedConference(file) || {};
+  const approved = development.approved || {};
 
   document.querySelector("#treatment-doc-title").textContent = blueprint.title || file.title;
   document.querySelector("#treatment-doc-author").textContent = blueprint.author || `${authors}. Original material credited according to the property file.`;
@@ -2471,6 +2491,17 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   const producerMemo = document.querySelector("#treatment-producer-memo");
   if (picturePromise) picturePromise.textContent = blueprint.picturePromise || "The approved photoplay architecture is ready for executive consideration.";
   if (producerMemo) producerMemo.textContent = blueprint.producerMemo || "";
+  if (treatmentReferenceGrid) {
+    const finalImage = approved.pictorial?.finalImage || blueprint.finalImage || "";
+    treatmentReferenceGrid.innerHTML = [
+      ["Approved Theme", approved.theme?.proposition || blueprint.theme],
+      ["Theme Production Law", approved.themeLaw?.themeSentence || ""],
+      ["Approved Ending", approved.ending?.summary || blueprint.approvedEnding],
+      ["Intended Scale", blueprint.intendedScale || "Appropriate to the approved picture"],
+      ["Final Image", finalImage],
+      ["Development Cautions", development.sourceControl?.deferredDecisions?.join(" ") || development.developmentBlueprint?.cautions?.join(" ") || "No unresolved cautions filed."]
+    ].map(([label, value]) => `<article><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value || "Not filed.")}</p></article>`).join("");
+  }
 
   document.querySelector("#treatment-cast").innerHTML = cast.map((item) => {
     const name = Array.isArray(item) ? item[0] : item.name;
@@ -2486,13 +2517,30 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   document.querySelector("#reel-breakdown").innerHTML = reels.map((item) => {
     const label = Array.isArray(item) ? item[0] : item.label;
     const body = Array.isArray(item) ? item[1] : item.body;
+    const sceneIds = Array.isArray(item.sceneIds) ? item.sceneIds : [];
     return `
-      <article>
+      <article class="treatment-movement">
         <h3>${escapeHtml(label || "Treatment Movement")}</h3>
-        <p>${escapeHtml(body || "")}</p>
+        ${sceneIds.length ? `<p class="treatment-scene-coverage"><strong>Scene cards:</strong> ${sceneIds.map((id) => `<span>${escapeHtml(id)}</span>`).join("")}</p>` : ""}
+        <div class="treatment-movement__body">${String(body || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div>
+        ${item.visualContinuity ? `<p><strong>Visual continuity:</strong> ${escapeHtml(item.visualContinuity)}</p>` : ""}
+        ${item.emotionalMovement ? `<p><strong>Emotional movement:</strong> ${escapeHtml(item.emotionalMovement)}</p>` : ""}
+        ${item.audiencePayoff ? `<p><strong>Audience payoff:</strong> ${escapeHtml(item.audiencePayoff)}</p>` : ""}
       </article>
     `;
   }).join("");
+
+  const implementation = Array.isArray(blueprint.implementationReport) ? blueprint.implementationReport : [];
+  if (treatmentImplementation && treatmentImplementationList) {
+    treatmentImplementation.hidden = !implementation.length;
+    treatmentImplementationList.innerHTML = implementation.map((item) => `
+      <article>
+        <h3>${escapeHtml(item.improvementId || "Executive improvement")}</h3>
+        <p><strong>${escapeHtml(item.disposition || "Filed")}</strong> · ${escapeHtml(item.treatmentLocation || "")}</p>
+        <p>${escapeHtml(item.explanation || "")}</p>
+      </article>
+    `).join("");
+  }
 
   officialTreatment.hidden = false;
   const upstairs = officialTreatment.querySelector(".treatment-signoff .button");
@@ -2617,28 +2665,42 @@ function renderTreatmentExecutiveRevision(property, treatment, carstairsPacket) 
   const treatmentRewrite = treatment && treatment.executiveRewrite ? treatment.executiveRewrite : null;
   const packet = carstairsPacket || treatmentRewrite;
 
-  if (!packet || !/rewrite/i.test(packet.verdict || packet.statusLabel || property?.status || "")) {
+  const isCollaborative = Number(packet?.packetVersion || 0) === 3 && packet?.verdict === "executive_revision";
+  if (!packet || (!isCollaborative && !/rewrite/i.test(packet.verdict || packet.statusLabel || property?.status || ""))) {
     executiveRevision.hidden = true;
     executiveRevisionMemo.innerHTML = "";
     executiveRevisionQuestions.innerHTML = "";
     return;
   }
 
-  const questions = normalizeCarstairsQuestions(packet);
-  const answers = normalizeRewriteAnswers(packet);
-
   executiveRevisionMemo.innerHTML = `
     <h3>${escapeHtml(packet.memoTitle || "From the Desk of Carstairs")}</h3>
     <p>${escapeHtml(stripHtmlTags(packet.memoBody || ""))}</p>
   `;
-
-  executiveRevisionQuestions.innerHTML = questions.map((question) => `
-    <article>
-      <h3>${escapeHtml(question.label)}</h3>
-      <p>${escapeHtml(question.prompt)}</p>
-      <p class="executive-answer">${escapeHtml(answers[question.id] || "No filed answer yet.")}</p>
-    </article>
-  `).join("");
+  if (isCollaborative) {
+    const selection = packet.approvedSelection || treatment?.executiveRevision?.approvedSelection;
+    const chosen = new Set(selection?.improvementIds || []);
+    executiveRevisionQuestions.innerHTML = `
+      ${selection ? `<article><h3>${escapeHtml(selection.packageName || "Approved Executive Order")}</h3><p>${escapeHtml(selection.notes || "The selected production improvements are binding on the revised treatment.")}</p></article>` : ""}
+      ${(packet.improvements || []).filter((item) => chosen.has(item.id)).map((item) => `
+        <article>
+          <h3>${escapeHtml(item.targetSection)} · ${escapeHtml(item.category.replace(/_/g, " "))}</h3>
+          <p>${escapeHtml(item.proposedChange)}</p>
+          <p><strong>Expected benefit:</strong> ${escapeHtml(item.expectedBenefit)}</p>
+        </article>
+      `).join("")}
+    `;
+  } else {
+    const questions = normalizeCarstairsQuestions(packet);
+    const answers = normalizeRewriteAnswers(packet);
+    executiveRevisionQuestions.innerHTML = questions.map((question) => `
+      <article>
+        <h3>${escapeHtml(question.label)}</h3>
+        <p>${escapeHtml(question.prompt)}</p>
+        <p class="executive-answer">${escapeHtml(answers[question.id] || "No filed answer yet.")}</p>
+      </article>
+    `).join("");
+  }
 
   executiveRevision.hidden = false;
 }
@@ -2650,7 +2712,7 @@ function requestOfficialTreatment(propertyId, writers) {
     const timeout = window.setTimeout(() => {
       cleanup();
       reject(new Error("Treatment request timed out."));
-    }, 120000);
+    }, 240000);
 
     function cleanup() {
       window.clearTimeout(timeout);
@@ -2695,7 +2757,9 @@ function renderLiveTreatmentProperty(property) {
   if (treatmentLogline) treatmentLogline.textContent = logline;
   if (prepareTreatment) {
     prepareTreatment.disabled = false;
-    prepareTreatment.textContent = "Prepare the Official Treatment";
+    prepareTreatment.textContent = /treatment revision ready/i.test(property.status || property.treatmentStatus || "")
+      ? "Prepare Revised Treatment"
+      : "Prepare the Official Treatment";
   }
 
   const savedTreatment = parseSavedTreatment(property);
@@ -2704,8 +2768,9 @@ function renderLiveTreatmentProperty(property) {
     renderTreatmentDocument(property, savedTreatment, savedTreatment.author || "", property.propertyId || getTreatmentProperty());
     renderTreatmentExecutiveRevision(property, savedTreatment, savedCarstairs);
     if (prepareTreatment) {
-      prepareTreatment.textContent = "Official Treatment Filed";
-      prepareTreatment.disabled = true;
+      const revisionReady = /treatment revision ready/i.test(property.status || property.treatmentStatus || "");
+      prepareTreatment.textContent = revisionReady ? "Prepare Revised Treatment" : "Official Treatment Filed";
+      prepareTreatment.disabled = !revisionReady;
     }
   } else {
     renderTreatmentExecutiveRevision(property, null, savedCarstairs);
@@ -2766,17 +2831,22 @@ if (prepareTreatment && officialTreatment) {
         const payload = await requestOfficialTreatment(key, treatmentWritersForRequest());
         if (!payload || !payload.ok || !payload.treatment) throw new Error(payload && payload.error ? payload.error : "Treatment response was not OK.");
         if (activeTreatmentProperty) {
-          activeTreatmentProperty.treatmentStatus = "Treatment Applied";
+          activeTreatmentProperty.treatmentStatus = payload.treatment.revisionNumber > 0 ? "Revised Treatment Filed" : "Treatment Filed";
+          activeTreatmentProperty.status = payload.carstairs?.statusLabel || (payload.treatment.revisionNumber > 0 ? "Carstairs Review" : "Treatment Filed");
           activeTreatmentProperty.treatmentUrl = `treatment-room.html?property=${encodeURIComponent(key)}`;
           activeTreatmentProperty.treatmentJson = JSON.stringify(payload.treatment);
+          if (payload.carstairs?.verdict) activeTreatmentProperty.carstairsJson = JSON.stringify(payload.carstairs);
         }
         renderTreatmentDocument(file, payload.treatment, authors, key);
-        prepareTreatment.textContent = "Official Treatment Filed";
+        renderTreatmentExecutiveRevision(activeTreatmentProperty, payload.treatment, payload.carstairs || null);
+        prepareTreatment.textContent = payload.treatment.revisionNumber > 0
+          ? "Revised Treatment Filed and Returned Upstairs"
+          : "Official Treatment Filed";
       } catch (error) {
         prepareTreatment.textContent = "Prepare the Official Treatment";
         prepareTreatment.disabled = false;
         if (selectedCount) {
-          selectedCount.textContent = "The treatment clerk could not file the live treatment just now. Try again.";
+          selectedCount.textContent = `The treatment clerk could not file the live treatment. ${error?.message || "Try again."}`;
         }
       }
       return;
@@ -2798,6 +2868,16 @@ const carstairsMemoTitle = document.querySelector("#carstairs-memo-title");
 const carstairsOpinion = document.querySelector("#carstairs-opinion");
 const carstairsReasons = document.querySelector("#carstairs-reasons");
 const carstairsReasonsList = document.querySelector("#carstairs-reasons-list");
+const carstairsAssessment = document.querySelector("#carstairs-assessment");
+const carstairsSuccesses = document.querySelector("#carstairs-successes");
+const carstairsWeaknesses = document.querySelector("#carstairs-weaknesses");
+const carstairsImprovements = document.querySelector("#carstairs-improvements");
+const carstairsPackageGrid = document.querySelector("#carstairs-package-grid");
+const carstairsImprovementGrid = document.querySelector("#carstairs-improvement-grid");
+const carstairsSelectionNotes = document.querySelector("#carstairs-selection-notes");
+const carstairsRevisionPreview = document.querySelector("#carstairs-revision-preview");
+const approveCarstairsImprovements = document.querySelector("#approve-carstairs-improvements");
+const carstairsSelectionStatus = document.querySelector("#carstairs-selection-status");
 const carstairsVerdict = document.querySelector("#carstairs-verdict");
 const carstairsStamp = document.querySelector("#carstairs-stamp");
 const carstairsQuote = document.querySelector("#carstairs-quote");
@@ -2817,6 +2897,8 @@ let carstairsRewriteUsed = false;
 let carstairsInterval;
 let activeCarstairsProperty = null;
 let activeCarstairsPayload = null;
+let activeCarstairsPackageId = "";
+let activeCarstairsImprovementIds = new Set();
 const carstairsMinimumReadingMs = 5500;
 
 const carstairsFiles = {
@@ -2845,6 +2927,7 @@ function showCarstairsVerdict(kind, quote) {
   if (!carstairsVerdict || !carstairsStamp || !carstairsQuote || !carstairsAction) return;
   const labels = {
     greenlight: ["Greenlight", "final-stamp final-stamp--treatments", "Return to the Scenario Desk", "scenario-desk.html"],
+    executive_revision: ["Executive Revision", "final-stamp final-stamp--reconference", "Review Production Improvements", "#carstairs-improvements"],
     rewrite: ["Needs Revision", "final-stamp final-stamp--reconference", "Return to Ordered Stage", "#carstairs-rewrite"],
     wastebasket: ["Wastebasket", "final-stamp final-stamp--wastebasket", "Return to the Scenario Desk", "scenario-desk.html"]
   };
@@ -2981,12 +3064,127 @@ function renderCarstairsRewriteForm(payload, forceOpen = false) {
   }
 }
 
+function renderCarstairsAssessment(payload) {
+  if (!carstairsAssessment || !carstairsSuccesses || !carstairsWeaknesses) return;
+  const successes = Array.isArray(payload?.successes) ? payload.successes : [];
+  const weaknesses = Array.isArray(payload?.weaknesses) ? payload.weaknesses : [];
+  carstairsSuccesses.innerHTML = successes.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  carstairsWeaknesses.innerHTML = weaknesses.map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  carstairsAssessment.hidden = !successes.length && !weaknesses.length;
+}
+
+function updateCarstairsRevisionPreview(payload) {
+  if (!carstairsRevisionPreview) return;
+  const improvements = Array.isArray(payload?.improvements) ? payload.improvements : [];
+  const selected = improvements.filter((item) => activeCarstairsImprovementIds.has(item.id));
+  const packageName = (payload?.packages || []).find((item) => item.id === activeCarstairsPackageId)?.name || "Custom Executive Order";
+  carstairsRevisionPreview.innerHTML = selected.length ? `
+    <p class="eyebrow">Proposed Revision Order</p>
+    <h3>${escapeHtml(packageName)}</h3>
+    <ol>${selected.map((item) => `<li><strong>${escapeHtml(item.targetSection)}</strong>: ${escapeHtml(item.proposedChange)}</li>`).join("")}</ol>
+  ` : `<p>Select a package or individual improvements to preview the binding revision order.</p>`;
+}
+
+function renderCarstairsImprovements(payload) {
+  if (!carstairsImprovements || !carstairsPackageGrid || !carstairsImprovementGrid) return;
+  if (Number(payload?.packetVersion || 0) !== 3 || payload?.verdict !== "executive_revision") {
+    carstairsImprovements.hidden = true;
+    return;
+  }
+
+  const filed = payload.approvedSelection?.status === "approved";
+  const selectedIds = payload.approvedSelection?.improvementIds || [];
+  activeCarstairsPackageId = payload.approvedSelection?.packageId || "";
+  activeCarstairsImprovementIds = new Set(selectedIds);
+
+  carstairsPackageGrid.innerHTML = (payload.packages || []).map((item) => `
+    <label class="carstairs-package ${activeCarstairsPackageId === item.id ? "is-selected" : ""}">
+      <input type="radio" name="carstairs-package" value="${escapeHtml(item.id)}" ${activeCarstairsPackageId === item.id ? "checked" : ""} ${filed ? "disabled" : ""}>
+      <strong>${escapeHtml(item.name)}</strong>
+      <span>${escapeHtml(item.summary)}</span>
+      <small>${item.improvementIds.length} coordinated improvements</small>
+    </label>
+  `).join("");
+
+  carstairsImprovementGrid.innerHTML = (payload.improvements || []).map((item) => `
+    <label class="carstairs-improvement ${activeCarstairsImprovementIds.has(item.id) ? "is-selected" : ""}">
+      <input type="checkbox" value="${escapeHtml(item.id)}" ${activeCarstairsImprovementIds.has(item.id) ? "checked" : ""} ${filed ? "disabled" : ""}>
+      <span class="carstairs-improvement__category">${escapeHtml(item.category.replace(/_/g, " "))}</span>
+      <strong>${escapeHtml(item.targetSection)}</strong>
+      <span>${escapeHtml(item.proposedChange)}</span>
+      <small><b>Why:</b> ${escapeHtml(item.reason)}</small>
+      <small><b>Benefit:</b> ${escapeHtml(item.expectedBenefit)}</small>
+    </label>
+  `).join("");
+
+  if (carstairsSelectionNotes) {
+    carstairsSelectionNotes.value = payload.approvedSelection?.notes || "";
+    carstairsSelectionNotes.disabled = filed;
+  }
+  if (approveCarstairsImprovements) {
+    approveCarstairsImprovements.disabled = filed;
+    approveCarstairsImprovements.textContent = filed ? "Executive Production Order Filed" : "Approve the Executive Production Order";
+  }
+  if (carstairsSelectionStatus) {
+    carstairsSelectionStatus.textContent = filed
+      ? "The approved order is waiting in Treatment Room."
+      : "Choose a complete package or customize the individual improvements.";
+  }
+
+  if (!filed) {
+    carstairsPackageGrid.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
+      const selectedPackage = (payload.packages || []).find((item) => item.id === input.value);
+      activeCarstairsPackageId = selectedPackage?.id || "";
+      activeCarstairsImprovementIds = new Set(selectedPackage?.improvementIds || []);
+      renderCarstairsImprovements(payload);
+    }));
+    carstairsImprovementGrid.querySelectorAll("input").forEach((input) => input.addEventListener("change", () => {
+      activeCarstairsPackageId = "";
+      if (input.checked) activeCarstairsImprovementIds.add(input.value);
+      else activeCarstairsImprovementIds.delete(input.value);
+      carstairsPackageGrid.querySelectorAll("input").forEach((radio) => { radio.checked = false; });
+      input.closest(".carstairs-improvement")?.classList.toggle("is-selected", input.checked);
+      updateCarstairsRevisionPreview(payload);
+    }));
+  }
+  updateCarstairsRevisionPreview(payload);
+  carstairsImprovements.hidden = false;
+}
+
+function requestCarstairsImprovementApproval(propertyId, selection) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioCarstairsSelection_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("The executive production order timed out."));
+    }, 120000);
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("The executive production order request failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=approveCarstairsImprovements&propertyId=${encodeURIComponent(propertyId)}&selection=${encodeURIComponent(JSON.stringify(selection))}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
 function renderSavedCarstairsMemo(payload) {
   if (!payload || !carstairsMemo || !carstairsMemoTitle || !carstairsOpinion) return;
   activeCarstairsPayload = payload;
   carstairsMemoTitle.textContent = payload.memoTitle || "From the Desk of Carstairs";
   carstairsOpinion.innerHTML = payload.memoBody || "";
   carstairsMemo.hidden = false;
+  renderCarstairsAssessment(payload);
+  renderCarstairsImprovements(payload);
   if (payload.verdict) {
     showCarstairsVerdict(payload.verdict, payload.quote || "");
     if (payload.verdict === "rewrite" && carstairsAction) {
@@ -3001,8 +3199,16 @@ function renderSavedCarstairsMemo(payload) {
       if (carstairsRewrite) carstairsRewrite.hidden = true;
       carstairsOpinion.insertAdjacentHTML("beforeend", `<p><strong>Ordered return stage:</strong> ${escapeHtml(target.replace(/_/g, " "))}</p>`);
     }
+    if (payload.verdict === "executive_revision" && carstairsAction) {
+      const filed = payload.approvedSelection?.status === "approved";
+      carstairsAction.textContent = filed ? "Open Treatment Room" : "Review Production Improvements";
+      carstairsAction.href = filed
+        ? `treatment-room.html?property=${encodeURIComponent(getCarstairsProperty())}`
+        : "#carstairs-improvements";
+    }
     renderCarstairsReasonsBlock(payload);
-    renderCarstairsAppealBlock(payload);
+    if (Number(payload.packetVersion || 0) < 3) renderCarstairsAppealBlock(payload);
+    else if (carstairsAppeal) carstairsAppeal.hidden = true;
     if (payload.verdict !== "rewrite") renderCarstairsRewriteForm(payload, false);
   } else {
     if (carstairsVerdict) carstairsVerdict.hidden = true;
@@ -3154,6 +3360,41 @@ if (carstairsAction && carstairsRewrite) {
     carstairsRewrite.hidden = false;
     startCarstairsClock();
     carstairsRewrite.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+if (approveCarstairsImprovements) {
+  approveCarstairsImprovements.addEventListener("click", async () => {
+    const key = getCarstairsProperty();
+    if (!/^SPC-/i.test(key) || !activeCarstairsPayload || activeCarstairsPayload.verdict !== "executive_revision") {
+      if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "No collaborative executive revision is open.";
+      return;
+    }
+    if (!activeCarstairsImprovementIds.size) {
+      if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "Choose a package or at least one individual improvement.";
+      return;
+    }
+    approveCarstairsImprovements.disabled = true;
+    approveCarstairsImprovements.textContent = "Filing the Executive Production Order";
+    if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "The approved changes are being sent down to Treatment Room.";
+    try {
+      const result = await requestCarstairsImprovementApproval(key, {
+        packageId: activeCarstairsPackageId,
+        improvementIds: Array.from(activeCarstairsImprovementIds),
+        notes: carstairsSelectionNotes?.value || ""
+      });
+      if (!result?.ok) throw new Error(result?.error || "The executive order was not accepted.");
+      activeCarstairsPayload = result.packet || activeCarstairsPayload;
+      renderSavedCarstairsMemo(activeCarstairsPayload);
+      if (carstairsAction) {
+        carstairsAction.textContent = "Open Treatment Room";
+        carstairsAction.href = `treatment-room.html?property=${encodeURIComponent(key)}`;
+      }
+    } catch (error) {
+      approveCarstairsImprovements.disabled = false;
+      approveCarstairsImprovements.textContent = "Approve the Executive Production Order";
+      if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = error?.message || "The executive order could not be filed.";
+    }
   });
 }
 
