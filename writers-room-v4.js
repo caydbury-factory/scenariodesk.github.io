@@ -50,6 +50,13 @@
       : String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char]);
   }
 
+  function normalizedScore(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10) return value;
+    const match = String(value ?? "").trim().match(/^(\d{1,2})(?:\s*\/\s*10)?$/);
+    const score = match ? Number(match[1]) : 0;
+    return Number.isInteger(score) && score >= 1 && score <= 10 ? score : null;
+  }
+
   function mutationId() {
     return window.crypto?.randomUUID?.() || `development-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   }
@@ -158,7 +165,15 @@
     if (!reportContent || !report) return;
     const identification = report.propertyIdentification || {};
     const summary = report.sourceStorySummary || {};
+    const score = normalizedScore(state.property?.suitabilityScore ?? report.suitabilityScore);
+    const needsRescore = state.readerPacket?.scoreStatus === "needs_rescore" || score === null;
     reportContent.innerHTML = `
+      <article class="reader-score-card ${score >= 7 ? "is-greenlight-eligible" : ""}">
+        <p class="eyebrow">Photoplay Suitability</p>
+        <strong>${score === null ? "Needs Rescore" : `${score}/10`}</strong>
+        ${score >= 7 ? `<span class="reader-score-badge">Greenlight Eligible</span>` : ""}
+        ${needsRescore ? `<button type="button" id="rescore-reader-v2">Rescore Property</button>` : ""}
+      </article>
       <article>
         <p class="eyebrow">Step 1 - Property Identification</p>
         <dl>
@@ -206,6 +221,7 @@
         </div>
       </article>
     `;
+    document.querySelector("#rescore-reader-v2")?.addEventListener("click", (event) => runReader(event.currentTarget).catch(showError));
   }
 
   function renderReaderState() {
@@ -617,8 +633,8 @@
       </div>`;
   }
 
-  async function runReader() {
-    const button = document.querySelector("#run-reader-v2");
+  async function runReader(triggerButton) {
+    const button = triggerButton || document.querySelector("#run-reader-v2");
     button.disabled = true;
     readerStatus.textContent = "The Reader is examining the complete source file...";
     try {
@@ -686,7 +702,8 @@
           packetVersion: 2,
           report: state.property.readerReport,
           decision: state.property.readerDecision,
-          error: state.property.readerError || ""
+          error: state.property.readerError || "",
+          scoreStatus: state.property.suitabilityScoreStatus || ""
         }
       : null;
     const savedConference = state.property.conferenceJson ? JSON.parse(state.property.conferenceJson) : null;
@@ -699,7 +716,7 @@
     }
   }
 
-  document.querySelector("#run-reader-v2")?.addEventListener("click", () => runReader().catch(showError));
+  document.querySelector("#run-reader-v2")?.addEventListener("click", (event) => runReader(event.currentTarget).catch(showError));
   document.querySelectorAll("[data-reader-decision]").forEach((button) => button.addEventListener("click", () => routeReader(button.dataset.readerDecision).catch(showError)));
   document.querySelector("#writers-v4-save-notes")?.addEventListener("click", () => mutate("save_notes", { notes: document.querySelector("#writers-v4-user-notes").value }, "Filing the binding user notes..."));
 

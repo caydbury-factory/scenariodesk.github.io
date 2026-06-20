@@ -786,6 +786,12 @@ fieldset span {
   line-height: 1.6;
 }
 
+.carstairs-improvement-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+
 #approve-carstairs-improvements {
   min-height: 56px;
   color: #fffdf7;
@@ -795,6 +801,53 @@ fieldset span {
   font-family: "Cinzel", Georgia, serif;
   font-weight: 900;
   text-transform: uppercase;
+}
+
+#decline-carstairs-polish {
+  min-height: 56px;
+  color: #5a2618;
+  background: #fffdf7;
+  border: 2px solid #8e531b;
+  border-radius: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.score-eligible-badge,
+.reader-score-badge {
+  display: inline-block;
+  padding: .18rem .42rem;
+  color: #fffdf7;
+  background: #48623b;
+  border: 1px solid #c99108;
+  font-family: "Special Elite", monospace;
+  font-size: .72rem;
+  text-transform: uppercase;
+}
+
+.reader-score-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .7rem;
+  padding: 1rem;
+  background: #f8efdc;
+  border: 1px solid rgba(125, 67, 28, .28);
+}
+
+.reader-score-card > strong {
+  color: #5a2618;
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.8rem;
+}
+
+.reader-score-card.is-greenlight-eligible {
+  border-left: 5px solid #48623b;
+}
+
+#rescore-reader-v2 {
+  margin-left: auto;
 }
 
 footer {

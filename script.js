@@ -222,6 +222,9 @@ function propertyHref(property) {
   const status = String(property.status || "");
   const carstairsVerdict = String(property.carstairsVerdict || "");
   const savedExecutivePacket = parseSavedCarstairs(property) || {};
+  if (/optional polish ready/i.test(property.treatmentStatus || "")) {
+    return `treatment-room.html?property=${encodeURIComponent(key)}`;
+  }
   if (/writers room development/i.test(status) && savedExecutivePacket.revisionTargetStage && savedExecutivePacket.revisionTargetStage !== "treatment") {
     return `writers-room.html?property=${encodeURIComponent(key)}`;
   }
@@ -267,6 +270,18 @@ function parseSavedCarstairs(property) {
 
 function lowerText(value) {
   return String(value || "").toLowerCase();
+}
+
+function normalizedSuitabilityScore(value) {
+  if (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 10) return value;
+  const match = String(value ?? "").trim().match(/^(\d{1,2})(?:\s*\/\s*10)?$/);
+  const score = match ? Number(match[1]) : 0;
+  return Number.isInteger(score) && score >= 1 && score <= 10 ? score : null;
+}
+
+function formatSuitabilityScore(value) {
+  const score = normalizedSuitabilityScore(value);
+  return score === null ? "Needs Rescore" : `${score}/10`;
 }
 
 function isConferenceRepairProperty(property) {
@@ -328,10 +343,12 @@ function isTreatmentRoomProperty(property) {
   const executivePacket = parseSavedCarstairs(property) || {};
   const treatmentReturn = /treatment ready/.test(status) && executivePacket.revisionTargetStage === "treatment";
   const collaborativeReturn = /treatment revision ready/.test(status) || /treatment revision ready/.test(treatmentStatus);
+  const optionalPolish = /optional polish ready|optional polish filing/.test(treatmentStatus);
   if (isExecutiveRewriteProperty(property) && !treatmentReturn && !collaborativeReturn) return false;
-  if (/greenlit|wastebasket/.test(status)) return false;
+  if (/wastebasket/.test(status)) return false;
+  if (/greenlit/.test(status) && !optionalPolish) return false;
   return /treatment ready|treatment applied|treatment filed|treatment revision ready|carstairs review/.test(status)
-    || /treatment ready|treatment applied|treatment filed|treatment revision ready|revised treatment filed/.test(treatmentStatus);
+    || /treatment ready|treatment applied|treatment filed|treatment revision ready|revised treatment filed|optional polish ready|optional polish filing/.test(treatmentStatus);
 }
 
 function isCarstairsRoomProperty(property) {
@@ -435,7 +452,8 @@ function renderScenarioDesk(properties) {
       : (property.status || "Needs Reader");
     const source = property.sourceType || "Unclassified Property";
     const reader = property.reader || "Awaiting assignment";
-    const score = property.suitabilityScore || "Pending";
+    const numericScore = normalizedSuitabilityScore(property.suitabilityScore);
+    const score = formatSuitabilityScore(property.suitabilityScore);
     const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
     const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
     const targetedWriterReturn = /writers room development/i.test(property.status || "") && savedCarstairs?.revisionTargetStage && savedCarstairs.revisionTargetStage !== "treatment";
@@ -463,7 +481,7 @@ function renderScenarioDesk(properties) {
         <dl>
           <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
           <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
-          <dt>Score</dt><dd>${escapeHtml(score)}</dd>
+          <dt>Score</dt><dd>${escapeHtml(score)}${numericScore >= 7 ? ` <span class="score-eligible-badge">Greenlight Eligible</span>` : ""}</dd>
         </dl>
         <p>${escapeHtml(summary)}</p>
         <span class="button button--small">${escapeHtml(actionLabel)}</span>
@@ -923,9 +941,9 @@ function configureConferenceFromProperty(property = {}) {
   activeConferenceWriterKeys = weightedConferenceWriters(property);
   activePhotoplaywrightVerdicts = makeConferenceVerdicts(activeConferenceWriterKeys);
 
-  const score = Number(String(property.suitabilityScore || "").match(/\d+/)?.[0] || 0);
+  const score = normalizedSuitabilityScore(property.suitabilityScore) || 0;
   const needsRepair = /weak|unclear|underdeveloped|thin|confusing|needs|repair|reconference|failed/.test(sourceText);
-  activeConferenceDecision = (score && score < 55) || needsRepair ? "reconference" : "treatments";
+  activeConferenceDecision = (score && score < 7) || needsRepair ? "reconference" : "treatments";
 }
 
 function parseSavedConference(property) {
@@ -2666,7 +2684,11 @@ function renderTreatmentExecutiveRevision(property, treatment, carstairsPacket) 
   const packet = carstairsPacket || treatmentRewrite;
 
   const isCollaborative = Number(packet?.packetVersion || 0) === 3 && packet?.verdict === "executive_revision";
-  if (!packet || (!isCollaborative && !/rewrite/i.test(packet.verdict || packet.statusLabel || property?.status || ""))) {
+  const isOptionalPolish = Number(packet?.packetVersion || 0) === 3 &&
+    packet?.scoreProtected === true &&
+    packet?.verdict === "greenlight" &&
+    packet?.approvedSelection?.status === "approved";
+  if (!packet || (!isCollaborative && !isOptionalPolish && !/rewrite/i.test(packet.verdict || packet.statusLabel || property?.status || ""))) {
     executiveRevision.hidden = true;
     executiveRevisionMemo.innerHTML = "";
     executiveRevisionQuestions.innerHTML = "";
@@ -2677,7 +2699,7 @@ function renderTreatmentExecutiveRevision(property, treatment, carstairsPacket) 
     <h3>${escapeHtml(packet.memoTitle || "From the Desk of Carstairs")}</h3>
     <p>${escapeHtml(stripHtmlTags(packet.memoBody || ""))}</p>
   `;
-  if (isCollaborative) {
+  if (isCollaborative || isOptionalPolish) {
     const selection = packet.approvedSelection || treatment?.executiveRevision?.approvedSelection;
     const chosen = new Set(selection?.improvementIds || []);
     executiveRevisionQuestions.innerHTML = `
@@ -2757,9 +2779,12 @@ function renderLiveTreatmentProperty(property) {
   if (treatmentLogline) treatmentLogline.textContent = logline;
   if (prepareTreatment) {
     prepareTreatment.disabled = false;
-    prepareTreatment.textContent = /treatment revision ready/i.test(property.status || property.treatmentStatus || "")
-      ? "Prepare Revised Treatment"
-      : "Prepare the Official Treatment";
+    const optionalPolishReady = /optional polish ready/i.test(property.treatmentStatus || "");
+    prepareTreatment.textContent = optionalPolishReady
+      ? "Prepare Optional Polished Treatment"
+      : (/treatment revision ready/i.test(property.status || property.treatmentStatus || "")
+        ? "Prepare Revised Treatment"
+        : "Prepare the Official Treatment");
   }
 
   const savedTreatment = parseSavedTreatment(property);
@@ -2769,8 +2794,11 @@ function renderLiveTreatmentProperty(property) {
     renderTreatmentExecutiveRevision(property, savedTreatment, savedCarstairs);
     if (prepareTreatment) {
       const revisionReady = /treatment revision ready/i.test(property.status || property.treatmentStatus || "");
-      prepareTreatment.textContent = revisionReady ? "Prepare Revised Treatment" : "Official Treatment Filed";
-      prepareTreatment.disabled = !revisionReady;
+      const optionalPolishReady = /optional polish ready/i.test(property.treatmentStatus || "");
+      prepareTreatment.textContent = optionalPolishReady
+        ? "Prepare Optional Polished Treatment"
+        : (revisionReady ? "Prepare Revised Treatment" : "Official Treatment Filed");
+      prepareTreatment.disabled = !revisionReady && !optionalPolishReady;
     }
   } else {
     renderTreatmentExecutiveRevision(property, null, savedCarstairs);
@@ -2877,6 +2905,7 @@ const carstairsImprovementGrid = document.querySelector("#carstairs-improvement-
 const carstairsSelectionNotes = document.querySelector("#carstairs-selection-notes");
 const carstairsRevisionPreview = document.querySelector("#carstairs-revision-preview");
 const approveCarstairsImprovements = document.querySelector("#approve-carstairs-improvements");
+const declineCarstairsPolish = document.querySelector("#decline-carstairs-polish");
 const carstairsSelectionStatus = document.querySelector("#carstairs-selection-status");
 const carstairsVerdict = document.querySelector("#carstairs-verdict");
 const carstairsStamp = document.querySelector("#carstairs-stamp");
@@ -3087,7 +3116,9 @@ function updateCarstairsRevisionPreview(payload) {
 
 function renderCarstairsImprovements(payload) {
   if (!carstairsImprovements || !carstairsPackageGrid || !carstairsImprovementGrid) return;
-  if (Number(payload?.packetVersion || 0) !== 3 || payload?.verdict !== "executive_revision") {
+  const optionalPolish = payload?.scoreProtected === true && payload?.verdict === "greenlight" && payload?.polishAvailable === true;
+  const collaborativeRevision = payload?.verdict === "executive_revision";
+  if (Number(payload?.packetVersion || 0) !== 3 || (!collaborativeRevision && !optionalPolish)) {
     carstairsImprovements.hidden = true;
     return;
   }
@@ -3123,12 +3154,20 @@ function renderCarstairsImprovements(payload) {
   }
   if (approveCarstairsImprovements) {
     approveCarstairsImprovements.disabled = filed;
-    approveCarstairsImprovements.textContent = filed ? "Executive Production Order Filed" : "Approve the Executive Production Order";
+    approveCarstairsImprovements.textContent = filed
+      ? (optionalPolish ? "Optional Polish Order Filed" : "Executive Production Order Filed")
+      : (optionalPolish ? "Approve Optional Polish" : "Approve the Executive Production Order");
+  }
+  if (declineCarstairsPolish) {
+    declineCarstairsPolish.hidden = !optionalPolish || filed;
+    declineCarstairsPolish.disabled = false;
   }
   if (carstairsSelectionStatus) {
     carstairsSelectionStatus.textContent = filed
       ? "The approved order is waiting in Treatment Room."
-      : "Choose a complete package or customize the individual improvements.";
+      : (optionalPolish
+        ? "This picture is already Greenlit. Choose optional polish or decline it without risk to production."
+        : "Choose a complete package or customize the individual improvements.");
   }
 
   if (!filed) {
@@ -3177,6 +3216,32 @@ function requestCarstairsImprovementApproval(propertyId, selection) {
   });
 }
 
+function requestCarstairsPolishDecline(propertyId) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `scenarioCarstairsDecline_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("The optional polish decision timed out."));
+    }, 60000);
+    function cleanup() {
+      window.clearTimeout(timeout);
+      delete window[callbackName];
+      script.remove();
+    }
+    window[callbackName] = (payload) => {
+      cleanup();
+      resolve(payload);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("The optional polish decision request failed."));
+    };
+    script.src = `${scenarioBackendUrl}?action=declineCarstairsPolish&propertyId=${encodeURIComponent(propertyId)}&callback=${encodeURIComponent(callbackName)}`;
+    document.body.appendChild(script);
+  });
+}
+
 function renderSavedCarstairsMemo(payload) {
   if (!payload || !carstairsMemo || !carstairsMemoTitle || !carstairsOpinion) return;
   activeCarstairsPayload = payload;
@@ -3187,6 +3252,9 @@ function renderSavedCarstairsMemo(payload) {
   renderCarstairsImprovements(payload);
   if (payload.verdict) {
     showCarstairsVerdict(payload.verdict, payload.quote || "");
+    if (payload.scoreProtected && payload.statusLabel && carstairsStamp) {
+      carstairsStamp.textContent = payload.statusLabel;
+    }
     if (payload.verdict === "rewrite" && carstairsAction) {
       const target = payload.revisionTargetStage || "treatment";
       const writersTarget = target !== "treatment";
@@ -3205,6 +3273,15 @@ function renderSavedCarstairsMemo(payload) {
       carstairsAction.href = filed
         ? `treatment-room.html?property=${encodeURIComponent(getCarstairsProperty())}`
         : "#carstairs-improvements";
+    }
+    if (payload.scoreProtected && payload.verdict === "greenlight" && carstairsAction) {
+      const polishFiled = payload.approvedSelection?.status === "approved";
+      carstairsAction.textContent = polishFiled
+        ? "Open Treatment Room"
+        : (payload.polishAvailable ? "Review Optional Polish" : "Return to the Scenario Desk");
+      carstairsAction.href = polishFiled
+        ? `treatment-room.html?property=${encodeURIComponent(getCarstairsProperty())}`
+        : (payload.polishAvailable ? "#carstairs-improvements" : "scenario-desk.html");
     }
     renderCarstairsReasonsBlock(payload);
     if (Number(payload.packetVersion || 0) < 3) renderCarstairsAppealBlock(payload);
@@ -3366,7 +3443,10 @@ if (carstairsAction && carstairsRewrite) {
 if (approveCarstairsImprovements) {
   approveCarstairsImprovements.addEventListener("click", async () => {
     const key = getCarstairsProperty();
-    if (!/^SPC-/i.test(key) || !activeCarstairsPayload || activeCarstairsPayload.verdict !== "executive_revision") {
+    const optionalPolish = activeCarstairsPayload?.scoreProtected === true &&
+      activeCarstairsPayload?.verdict === "greenlight" &&
+      activeCarstairsPayload?.polishAvailable === true;
+    if (!/^SPC-/i.test(key) || !activeCarstairsPayload || (activeCarstairsPayload.verdict !== "executive_revision" && !optionalPolish)) {
       if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "No collaborative executive revision is open.";
       return;
     }
@@ -3394,6 +3474,27 @@ if (approveCarstairsImprovements) {
       approveCarstairsImprovements.disabled = false;
       approveCarstairsImprovements.textContent = "Approve the Executive Production Order";
       if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = error?.message || "The executive order could not be filed.";
+    }
+  });
+}
+
+if (declineCarstairsPolish) {
+  declineCarstairsPolish.addEventListener("click", async () => {
+    const key = getCarstairsProperty();
+    if (!/^SPC-/i.test(key) || !activeCarstairsPayload?.scoreProtected || activeCarstairsPayload?.verdict !== "greenlight") {
+      if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "No optional polish is open.";
+      return;
+    }
+    declineCarstairsPolish.disabled = true;
+    if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = "Closing the optional polish docket without disturbing the Greenlight.";
+    try {
+      const result = await requestCarstairsPolishDecline(key);
+      if (!result?.ok) throw new Error(result?.error || "The optional polish decision was not accepted.");
+      activeCarstairsPayload = result.packet || activeCarstairsPayload;
+      renderSavedCarstairsMemo(activeCarstairsPayload);
+    } catch (error) {
+      declineCarstairsPolish.disabled = false;
+      if (carstairsSelectionStatus) carstairsSelectionStatus.textContent = error?.message || "The optional polish decision could not be filed.";
     }
   });
 }
