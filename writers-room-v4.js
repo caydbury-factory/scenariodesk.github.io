@@ -32,10 +32,13 @@
     scenes: [],
     selectedArrangement: "",
     saving: false,
-    autosaveTimer: null
+    autosaveTimer: null,
+    archiveStage: ""
   };
 
-  const propertyId = new URLSearchParams(window.location.search).get("property") || "";
+  const query = new URLSearchParams(window.location.search);
+  const propertyId = query.get("property") || "";
+  const archiveMode = query.get("mode") === "archive";
   const reportSection = document.querySelector("#reader-v2-report");
   const reportContent = document.querySelector("#reader-v2-content");
   const pendingSection = document.querySelector("#reader-v2-pending");
@@ -43,6 +46,9 @@
   const workspace = document.querySelector("#writers-v4-workspace");
   const active = document.querySelector("#writers-v4-active");
   const errorNode = document.querySelector("#writers-v4-error");
+  const archiveBanner = document.querySelector("#writers-v4-archive-banner");
+  const archiveTiles = document.querySelector("#development-archive-tiles");
+  const archiveEmpty = document.querySelector("#development-archive-empty");
 
   function html(value) {
     return typeof escapeHtml === "function"
@@ -229,7 +235,10 @@
     const hasReport = Number(reader?.packetVersion || 0) === 2 && reader?.report;
     if (reportSection) reportSection.hidden = !hasReport;
     if (pendingSection) pendingSection.hidden = hasReport;
-    if (workspace) workspace.hidden = !(hasReport && reader.decision === "send_to_writers");
+    if (workspace) workspace.hidden = archiveMode
+      ? !state.packet
+      : !(hasReport && reader.decision === "send_to_writers");
+    document.querySelector("#reader-v2-actions")?.toggleAttribute("hidden", archiveMode);
     if (hasReport) renderReaderReport(reader.report);
     if (!hasReport && readerStatus) {
       if (String(state.property?.status || "").toLowerCase() === "reader failed") {
@@ -254,7 +263,7 @@
     if (!list || !state.packet) return;
     list.innerHTML = STAGES.map(([key, label], index) => {
       const stage = state.packet.stages?.[key] || {};
-      const current = state.packet.activeStage === key;
+      const current = (archiveMode ? state.archiveStage : state.packet.activeStage) === key;
       return `<button type="button" class="writers-v4-stage ${current ? "is-active" : ""} is-${html(stage.status || "not_started")}" data-return-stage="${html(key)}" ${stage.status === "not_started" ? "disabled" : ""}>
         <span>${String(index + 1).padStart(2, "0")}</span>
         <strong>${html(label)}</strong>
@@ -264,6 +273,11 @@
     list.querySelectorAll("[data-return-stage]").forEach((button) => {
       button.addEventListener("click", () => {
         const stage = button.dataset.returnStage;
+        if (archiveMode) {
+          state.archiveStage = stage;
+          renderWorkspace();
+          return;
+        }
         if (stage === state.packet.activeStage) return;
         if (!window.confirm(`Return to ${button.querySelector("strong")?.textContent}? Later drafts will remain on file but become provisional.`)) return;
         mutate("return_to_stage", { stage }, "Reopening the earlier development stage...");
@@ -304,9 +318,13 @@
       : "<p>No Reader Report is filed.</p>";
     if (versions) {
       const blocks = Object.entries(state.packet?.stages || {}).filter(([, value]) => value.versions?.length);
-      versions.innerHTML = blocks.length
+      const versionMarkup = blocks.length
         ? blocks.map(([key, value]) => `<p><strong>${html(key.replace(/_/g, " "))}</strong>: ${value.versions.length} filed version${value.versions.length === 1 ? "" : "s"}</p>`).join("")
         : "<p>No earlier versions are filed yet.</p>";
+      const historyMarkup = archiveMode && state.packet?.history?.length
+        ? `<hr><p><strong>Development History</strong></p><ol>${state.packet.history.map((entry) => `<li>${html(entry.command || "filing")} · ${html(entry.at || "")}</li>`).join("")}</ol>`
+        : "";
+      versions.innerHTML = versionMarkup + historyMarkup;
     }
   }
 
@@ -316,10 +334,24 @@
     renderStageRail();
     renderDecisions();
     renderSourceAndVersions();
-    const stage = state.packet.activeStage;
+    if (archiveBanner) archiveBanner.hidden = !archiveMode;
+    const notes = document.querySelector("#writers-v4-user-notes");
+    const saveNotes = document.querySelector("#writers-v4-save-notes");
+    if (notes) notes.disabled = archiveMode;
+    if (saveNotes) saveNotes.hidden = archiveMode;
+    const stage = archiveMode
+      ? (state.archiveStage || archiveInitialStage())
+      : state.packet.activeStage;
+    if (archiveMode) state.archiveStage = stage;
     document.querySelector("#writers-v4-step").textContent = STEP_NUMBERS[stage] || "Development";
     document.querySelector("#writers-v4-title").textContent = STAGES.find(([key]) => key === stage)?.[1] || "Development Complete";
-    document.querySelector("#writers-v4-status").textContent = state.packet.statusLabel || stage.replace(/_/g, " ");
+    document.querySelector("#writers-v4-status").textContent = archiveMode
+      ? "Filed Development Record"
+      : (state.packet.statusLabel || stage.replace(/_/g, " "));
+    if (archiveMode) {
+      renderArchivedStage(stage);
+      return;
+    }
     if (stage === "screen_gold" || stage === "ending_options") renderScreenGold();
     else if (stage === "theme_test") renderThemeTest();
     else if (stage === "theme_law") renderThemeLaw();
@@ -328,6 +360,88 @@
     else if (stage === "brief_synopsis") renderSynopsis();
     else if (stage === "pictorial" || stage === "continuity") renderPictorial();
     else renderTreatmentReady();
+  }
+
+  function archiveInitialStage() {
+    const approved = STAGES.filter(([key]) => state.packet.stages?.[key]?.status !== "not_started");
+    return approved.length ? approved[approved.length - 1][0] : state.packet.activeStage;
+  }
+
+  function renderArchivedStage(stage) {
+    const record = state.packet.stages?.[stage] || {};
+    const data = record.data || {};
+    if (stage === "scene_board") {
+      const scenes = state.packet.approved?.sceneBoard?.length
+        ? state.packet.approved.sceneBoard
+        : (data.currentScenes || data.recommended || []);
+      active.innerHTML = `
+        <p class="archive-stage-summary"><strong>${scenes.length} filed scene cards.</strong> The approved order is preserved below.</p>
+        <div class="archive-scene-board">${scenes.map((scene, index) => `
+          <article>
+            <header><strong>Scene ${scene.sceneNumber || index + 1}</strong><span class="provenance provenance--${html(scene.provenance || "adapted")}">${html(scene.provenance || "adapted")}</span></header>
+            <h3>${html(scene.location || "Unspecified Location")}</h3>
+            <p>${html(scene.dramaticEvent || "")}</p>
+            <p><strong>Characters:</strong> ${html((scene.characters || []).join(", "))}</p>
+            <p><strong>Visual business:</strong> ${html(scene.visualBusiness || "")}</p>
+            ${scene.notes ? `<p><strong>Notes:</strong> ${html(scene.notes)}</p>` : ""}
+          </article>`).join("")}
+        </div>`;
+      return;
+    }
+    if (stage === "photoplay_cast") {
+      const cast = state.packet.approved?.cast?.length ? state.packet.approved.cast : (data.cast || []);
+      active.innerHTML = `<div class="archive-record-grid">${cast.map((item) => `
+        <article><span class="provenance provenance--${html(item.provenance || "adapted")}">${html(item.provenance || "adapted")}</span>
+        <h3>${html(item.name)}</h3>${archiveObject(item, ["id", "name", "provenance"])}</article>`).join("")}</div>`;
+      return;
+    }
+    if (stage === "brief_synopsis") {
+      active.innerHTML = `<article class="archive-prose-record"><p>${html(data.synopsis || state.packet.approved?.briefSynopsis || "No synopsis was filed.")}</p></article>`;
+      return;
+    }
+    if (stage === "pictorial" || stage === "continuity") {
+      active.innerHTML = `<div class="pictorial-continuity-grid">
+        <article><p class="eyebrow">Pictorial Element</p>${objectReport(state.packet.stages?.pictorial?.data || {})}</article>
+        <article><p class="eyebrow">Continuity Summary</p>${objectReport(state.packet.stages?.continuity?.data || {})}</article>
+      </div>`;
+      return;
+    }
+    active.innerHTML = `
+      <article class="archive-stage-record">
+        <p class="eyebrow">${html(String(record.status || "filed").replace(/_/g, " "))}</p>
+        ${archiveObject(data)}
+        ${record.approvedAt ? `<p><strong>Approved:</strong> ${html(record.approvedAt)}</p>` : ""}
+        <p><strong>Filed versions:</strong> ${(record.versions || []).length}</p>
+      </article>`;
+  }
+
+  function archiveObject(value, omitted = []) {
+    if (value === null || value === undefined || value === "") return "<p>No filed material.</p>";
+    if (Array.isArray(value)) return `<ul>${value.map((item) => `<li>${typeof item === "object" ? archiveObject(item) : html(item)}</li>`).join("")}</ul>`;
+    if (typeof value !== "object") return `<p>${html(value)}</p>`;
+    return Object.entries(value)
+      .filter(([key]) => !omitted.includes(key))
+      .map(([key, item]) => `<section><h3>${html(key.replace(/([A-Z])/g, " $1"))}</h3>${archiveObject(item)}</section>`)
+      .join("");
+  }
+
+  async function loadDevelopmentArchive() {
+    if (!archiveTiles || !archiveEmpty) return;
+    try {
+      const payload = await jsonp("developmentArchive", {}, 120000);
+      const records = payload?.records || [];
+      archiveTiles.innerHTML = records.map((record) => `
+        <a class="development-archive-tile" href="${html(record.writerRoomUrl)}">
+          <span>${html(record.propertyId)}</span>
+          <strong>${html(record.title)}</strong>
+          <small>${html(record.status || record.statusLabel || "Filed")} / ${html((record.activeStage || "development").replace(/_/g, " "))}</small>
+          <small>${record.versionCount || 0} filed version${record.versionCount === 1 ? "" : "s"}</small>
+        </a>`).join("");
+      archiveEmpty.hidden = records.length > 0;
+    } catch (error) {
+      archiveEmpty.hidden = false;
+      archiveEmpty.textContent = `The Development Archive could not be opened. ${error?.message || ""}`;
+    }
   }
 
   function renderScreenGold() {
@@ -710,6 +824,11 @@
     state.packet = savedConference?.packetVersion === 4 ? savedConference : null;
     renderPropertyHeader();
     renderReaderState();
+    if (archiveMode) {
+      if (!state.packet) throw new Error("The filed Development Packet is unavailable.");
+      renderWorkspace();
+      return;
+    }
     if (state.readerPacket?.decision === "send_to_writers") {
       if (state.packet) renderWorkspace();
       else await openDevelopment();
@@ -720,5 +839,6 @@
   document.querySelectorAll("[data-reader-decision]").forEach((button) => button.addEventListener("click", () => routeReader(button.dataset.readerDecision).catch(showError)));
   document.querySelector("#writers-v4-save-notes")?.addEventListener("click", () => mutate("save_notes", { notes: document.querySelector("#writers-v4-user-notes").value }, "Filing the binding user notes..."));
 
+  loadDevelopmentArchive();
   loadProperty().catch(showError);
 })();

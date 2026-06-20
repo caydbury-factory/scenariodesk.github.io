@@ -850,6 +850,93 @@ fieldset span {
   margin-left: auto;
 }
 
+.development-archive-picker {
+  margin-top: 1.4rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(125, 67, 28, .24);
+}
+
+.development-archive-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .7rem;
+  margin-top: .8rem;
+}
+
+.development-archive-tile {
+  display: grid;
+  gap: .35rem;
+  min-height: 116px;
+  padding: .85rem;
+  color: #3e281a;
+  background: #f8efdc;
+  border: 1px solid rgba(125, 67, 28, .28);
+  text-decoration: none;
+}
+
+.development-archive-tile:hover {
+  border-color: #8e531b;
+  background: #fffaf0;
+}
+
+.development-archive-tile > span,
+.development-archive-tile small {
+  color: #846044;
+  font-family: "Special Elite", monospace;
+}
+
+.writers-v4-archive-banner {
+  grid-column: 1 / -1;
+  padding: 1rem 1.2rem;
+  color: #fffdf7;
+  background: #5a2618;
+  border: 2px solid #c99108;
+}
+
+.writers-v4-archive-banner p {
+  margin: .2rem 0;
+}
+
+.archive-scene-board,
+.archive-record-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .8rem;
+  max-height: 860px;
+  overflow-y: auto;
+  padding-right: .35rem;
+}
+
+.archive-scene-board article,
+.archive-record-grid article,
+.archive-stage-record,
+.archive-prose-record {
+  padding: 1rem;
+  background: #fffdf7;
+  border: 1px solid rgba(125, 67, 28, .25);
+}
+
+.archive-scene-board header {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.archive-stage-record section {
+  margin-bottom: .9rem;
+}
+
+.archive-stage-record h3,
+.archive-record-grid h3 {
+  color: #7d431c;
+}
+
+.archive-stage-summary {
+  padding: .8rem;
+  background: #f8efdc;
+  border-left: 4px solid #8e531b;
+}
+
 footer {
   display: flex;
   justify-content: center;
@@ -2996,7 +3083,10 @@ footer {
   .treatment-reference-grid,
   .carstairs-assessment,
   .carstairs-package-grid,
-  .carstairs-improvement-grid {
+  .carstairs-improvement-grid,
+  .development-archive-tiles,
+  .archive-scene-board,
+  .archive-record-grid {
     grid-template-columns: 1fr;
   }
 }

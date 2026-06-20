@@ -2095,6 +2095,8 @@ function initWritersRoomSelector() {
   const empty = document.querySelector("#writers-room-property-empty");
   if (!tiles || !empty) return;
 
+  const archiveMode = new URLSearchParams(window.location.search).get("mode") === "archive";
+
   loadLedgerProperties()
     .then((payload) => {
       if (!payload || !payload.ok) throw new Error("Ledger response was not OK.");
@@ -2102,7 +2104,7 @@ function initWritersRoomSelector() {
       const current = properties.find((item) =>
         String(item.propertyId || "").toLowerCase() === String(activePropertyKey || "").toLowerCase()
       );
-      const currentIsValid = !activePropertyKey || roomPropertyEligibleForDirectLoad("writers", current);
+      const currentIsValid = archiveMode || !activePropertyKey || roomPropertyEligibleForDirectLoad("writers", current);
       renderRoomPropertySelector("writers", {
         properties,
         currentPropertyId: activePropertyKey,
@@ -2121,6 +2123,8 @@ function initWritersRoomSelector() {
         showWritersRoomDeskMessage("Property Not Found", "This property could not be found in the live ledger. Select another current file.");
         return;
       }
+
+      if (archiveMode) return;
 
       if (!roomPropertyEligibleForDirectLoad("writers", current)) {
         showWritersRoomDeskMessage("Select Property", "This property is not presently on the Writers' Room desk. Select another current file.");
