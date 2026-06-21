@@ -2948,6 +2948,7 @@ footer {
 }
 
 .treatment-cards h3,
+.treatment-cards h4,
 .reel-breakdown h3 {
   color: #7d431c;
 }
@@ -2955,6 +2956,56 @@ footer {
 .treatment-cards p,
 .reel-breakdown p {
   line-height: 1.65;
+}
+
+.treatment-cards {
+  max-height: 920px;
+  overflow-y: auto;
+  padding-right: .4rem;
+}
+
+.treatment-cast-group {
+  display: grid;
+  gap: .65rem;
+}
+
+.treatment-cast-group__heading {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .65rem .8rem;
+  color: #fffdf7;
+  background: #5a2618;
+  border-bottom: 2px solid #c99108;
+}
+
+.treatment-cast-group__heading h3 {
+  margin: 0;
+  color: inherit;
+}
+
+.treatment-cast-group__heading span {
+  font-family: "Special Elite", monospace;
+}
+
+.treatment-cast-group__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .7rem;
+}
+
+.treatment-cast-group__cards h4 {
+  margin-top: 0;
+  font-family: "Cinzel", Georgia, serif;
+}
+
+.treatment-cast-detail {
+  color: #765942;
+  font-style: italic;
 }
 
 .treatment-development-reference,
@@ -3086,7 +3137,8 @@ footer {
   .carstairs-improvement-grid,
   .development-archive-tiles,
   .archive-scene-board,
-  .archive-record-grid {
+  .archive-record-grid,
+  .treatment-cast-group__cards {
     grid-template-columns: 1fr;
   }
 }

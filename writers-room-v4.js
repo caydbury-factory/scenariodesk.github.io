@@ -535,7 +535,7 @@
       </div>
       <button type="button" id="approve-cast">Lock Final Cast</button>`;
     document.querySelector("#add-cast").addEventListener("click", () => {
-      document.querySelector("#photoplay-cast-board").insertAdjacentHTML("beforeend", castCard({ id: `cast_${Date.now()}`, name: "New Character", provenance: "invented", adaptationDecision: "invent" }));
+      document.querySelector("#photoplay-cast-board").insertAdjacentHTML("beforeend", castCard({ id: `cast_${Date.now()}`, name: "New Character", provenance: "invented", adaptationDecision: "invent", billingTier: "secondary" }));
     });
     document.querySelector("#merge-cast").addEventListener("click", () => {
       const selected = Array.from(document.querySelectorAll("[data-cast-merge]:checked")).map((node) => node.closest("[data-cast-card]"));
@@ -560,9 +560,23 @@
     return `<article class="photoplay-cast-card" data-cast-card data-id="${html(item.id || "")}">
       <div><span class="provenance provenance--${html(item.provenance || "adapted")}">${html(item.provenance || "adapted")}</span><label><input type="checkbox" data-cast-merge> Select for merge</label></div>
       ${fields.map((field) => `<label>${html(field.replace(/([A-Z])/g, " $1"))}<textarea data-field="${field}">${html(item[field] || "")}</textarea></label>`).join("")}
+      <label>Billing tier<select data-field="billingTier">${[
+        ["primary", "Primary Character"],
+        ["secondary", "Secondary Character"],
+        ["mentioned", "Mentioned / Background Player"]
+      ].map(([value, label]) => `<option value="${value}" ${castBillingTier(item) === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
       <label>Adaptation decision<select data-field="adaptationDecision">${["keep", "remove", "merge", "restore", "reinterpret", "invent"].map((value) => `<option ${item.adaptationDecision === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
       <label>Provenance<select data-field="provenance">${["source", "adapted", "invented"].map((value) => `<option ${item.provenance === value ? "selected" : ""}>${value}</option>`).join("")}</select></label>
     </article>`;
+  }
+
+  function castBillingTier(item) {
+    const saved = String(item?.billingTier || "").toLowerCase();
+    if (["primary", "secondary", "mentioned"].includes(saved)) return saved;
+    const role = [item?.screenFunction, item?.photoplayFunction, item?.sourceFunction].join(" ").toLowerCase();
+    if (/\b(hero|heroine|protagonist|antagonist|villain|romantic lead|love interest|moral center|central character|star vehicle)\b/.test(role)) return "primary";
+    if (/\b(support|confidant|rival|teammate|companion|witness|comic|mentor|guardian|suspect|catalyst)\b/.test(role)) return "secondary";
+    return "mentioned";
   }
 
   function collectCast() {

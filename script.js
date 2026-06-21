@@ -2497,12 +2497,23 @@ function treatmentWritersForRequest() {
 
 function renderTreatmentDocument(file, treatment, authors, key) {
   const blueprint = treatment || treatmentBlueprints[key] || treatmentBlueprints["dangerous-kisses"];
-  const cast = Array.isArray(blueprint.cast) ? blueprint.cast : [];
   const reels = Array.isArray(blueprint.movements) && blueprint.movements.length
     ? blueprint.movements
     : (Array.isArray(blueprint.reels) ? blueprint.reels : []);
   const development = parseSavedConference(file) || {};
   const approved = development.approved || {};
+  const approvedCast = completeDevelopmentCast(development);
+  const cast = approvedCast.length ? approvedCast : (Array.isArray(blueprint.cast) ? blueprint.cast : []);
+  const approvedScenes = Array.isArray(approved.sceneBoard) ? approved.sceneBoard : [];
+  const sceneNumberById = new Map(approvedScenes.map((scene, index) => [
+    String(scene.id || ""),
+    Number(scene.sceneNumber || index + 1)
+  ]));
+  if (!sceneNumberById.size) {
+    reels.flatMap((movement) => Array.isArray(movement.sceneIds) ? movement.sceneIds : []).forEach((id, index) => {
+      sceneNumberById.set(String(id || ""), index + 1);
+    });
+  }
 
   document.querySelector("#treatment-doc-title").textContent = blueprint.title || file.title;
   document.querySelector("#treatment-doc-author").textContent = blueprint.author || `${authors}. Original material credited according to the property file.`;
@@ -2525,16 +2536,22 @@ function renderTreatmentDocument(file, treatment, authors, key) {
     ].map(([label, value]) => `<article><h3>${escapeHtml(label)}</h3><p>${escapeHtml(value || "Not filed.")}</p></article>`).join("");
   }
 
-  document.querySelector("#treatment-cast").innerHTML = cast.map((item) => {
-    const name = Array.isArray(item) ? item[0] : item.name;
-    const body = Array.isArray(item) ? item[1] : item.description;
-    return `
-      <article>
-        <h3>${escapeHtml(name || "Dramatis Persona")}</h3>
-        <p>${escapeHtml(body || "")}</p>
-      </article>
-    `;
-  }).join("");
+  const groupedCast = groupTreatmentCast(cast, approvedScenes);
+  document.querySelector("#treatment-cast").innerHTML = [
+    ["primary", "Primary Characters"],
+    ["secondary", "Secondary Characters"],
+    ["mentioned", "Mentioned and Background Players"]
+  ].filter(([tier]) => groupedCast[tier].length).map(([tier, label]) => `
+    <section class="treatment-cast-group treatment-cast-group--${tier}">
+      <div class="treatment-cast-group__heading">
+        <h3>${label}</h3>
+        <span>${groupedCast[tier].length}</span>
+      </div>
+      <div class="treatment-cast-group__cards">
+        ${groupedCast[tier].map(renderTreatmentCastCard).join("")}
+      </div>
+    </section>
+  `).join("");
 
   document.querySelector("#reel-breakdown").innerHTML = reels.map((item) => {
     const label = Array.isArray(item) ? item[0] : item.label;
@@ -2543,7 +2560,7 @@ function renderTreatmentDocument(file, treatment, authors, key) {
     return `
       <article class="treatment-movement">
         <h3>${escapeHtml(label || "Treatment Movement")}</h3>
-        ${sceneIds.length ? `<p class="treatment-scene-coverage"><strong>Scene cards:</strong> ${sceneIds.map((id) => `<span>${escapeHtml(id)}</span>`).join("")}</p>` : ""}
+        ${sceneIds.length ? `<p class="treatment-scene-coverage"><strong>Scene cards:</strong> ${sceneIds.map((id, index) => `<span>${escapeHtml(treatmentSceneLabel(id, sceneNumberById, index))}</span>`).join("")}</p>` : ""}
         <div class="treatment-movement__body">${String(body || "").split(/\n\s*\n/).filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div>
         ${item.visualContinuity ? `<p><strong>Visual continuity:</strong> ${escapeHtml(item.visualContinuity)}</p>` : ""}
         ${item.emotionalMovement ? `<p><strong>Emotional movement:</strong> ${escapeHtml(item.emotionalMovement)}</p>` : ""}
@@ -2568,6 +2585,80 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   const upstairs = officialTreatment.querySelector(".treatment-signoff .button");
   if (upstairs) upstairs.href = `carstairs-office.html?property=${encodeURIComponent(key)}`;
   officialTreatment.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function treatmentSceneLabel(sceneId, sceneNumberById, fallbackIndex) {
+  const key = String(sceneId || "");
+  const approvedNumber = sceneNumberById.get(key);
+  if (approvedNumber) return `Scene ${approvedNumber}`;
+  const simpleMatch = key.match(/^scene[_-]?(\d+)$/i);
+  if (simpleMatch) return `Scene ${Number(simpleMatch[1])}`;
+  return `Scene ${fallbackIndex + 1}`;
+}
+
+function groupTreatmentCast(cast, scenes) {
+  const appearances = new Map();
+  (scenes || []).forEach((scene) => {
+    (scene.characters || []).forEach((name) => {
+      const key = String(name || "").trim().toLowerCase();
+      if (key) appearances.set(key, (appearances.get(key) || 0) + 1);
+    });
+  });
+  const groups = { primary: [], secondary: [], mentioned: [] };
+  (cast || []).forEach((item) => {
+    const record = Array.isArray(item)
+      ? { name: item[0], description: item[1] }
+      : { ...item };
+    const nameKey = String(record.name || "").trim().toLowerCase();
+    record.appearanceCount = Number(record.appearanceCount || appearances.get(nameKey) || 0);
+    const tier = treatmentCastTier(record, scenes.length);
+    record.billingTier = tier;
+    groups[tier].push(record);
+  });
+  return groups;
+}
+
+function completeDevelopmentCast(development) {
+  const approved = Array.isArray(development?.approved?.cast) ? development.approved.cast : [];
+  const stageCast = Array.isArray(development?.stages?.photoplay_cast?.data?.cast)
+    ? development.stages.photoplay_cast.data.cast
+    : [];
+  const seenIds = new Set();
+  const seenNames = new Set();
+  return [...approved, ...stageCast].filter((item) => {
+    if (!item || String(item.adaptationDecision || "").toLowerCase() === "remove") return false;
+    const idKey = String(item.id || "").trim().toLowerCase();
+    const nameKey = String(item.name || "").trim().toLowerCase();
+    if ((!idKey && !nameKey) || (idKey && seenIds.has(idKey)) || (nameKey && seenNames.has(nameKey))) return false;
+    if (idKey) seenIds.add(idKey);
+    if (nameKey) seenNames.add(nameKey);
+    return true;
+  });
+}
+
+function treatmentCastTier(item, sceneCount) {
+  const saved = String(item.billingTier || "").toLowerCase();
+  if (["primary", "secondary", "mentioned"].includes(saved)) return saved;
+  const role = [item.screenFunction, item.photoplayFunction, item.sourceFunction, item.description].join(" ").toLowerCase();
+  if (/\b(hero|heroine|protagonist|antagonist|villain|romantic lead|love interest|moral center|central character|star vehicle)\b/.test(role)) return "primary";
+  if (item.appearanceCount >= Math.max(4, Math.ceil((sceneCount || 1) * 0.25))) return "primary";
+  if (item.appearanceCount >= 2 || /\b(support|confidant|rival|teammate|companion|witness|comic|mentor|guardian|suspect|catalyst)\b/.test(role)) return "secondary";
+  return "mentioned";
+}
+
+function renderTreatmentCastCard(item) {
+  const name = item.name || "Dramatis Persona";
+  const role = item.screenFunction || item.photoplayFunction || item.description || "";
+  const detail = item.photoplayFunction && item.photoplayFunction !== role
+    ? item.photoplayFunction
+    : (item.visibleTrait || item.castingNote || "");
+  return `
+    <article>
+      <h4>${escapeHtml(name)}</h4>
+      ${role ? `<p>${escapeHtml(role)}</p>` : ""}
+      ${detail ? `<p class="treatment-cast-detail">${escapeHtml(detail)}</p>` : ""}
+    </article>
+  `;
 }
 
 function stripHtmlTags(html) {
