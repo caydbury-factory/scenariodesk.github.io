@@ -846,6 +846,34 @@ fieldset span {
   border-left: 5px solid #48623b;
 }
 
+.reader-identity-card {
+  border-top: 4px solid #5a2618 !important;
+}
+
+.reader-identity-card h3 {
+  margin: .25rem 0;
+  color: #5a2618;
+  font-family: "Cinzel", Georgia, serif;
+}
+
+.reader-identity-card > strong {
+  display: block;
+  color: #8e531b;
+}
+
+.reader-identity-card__voice {
+  color: #765942;
+  font-style: italic;
+}
+
+.reader-identity-card__assignment {
+  padding-top: .65rem;
+  border-top: 1px solid rgba(125, 67, 28, .22);
+  color: #765942;
+  font-family: "Special Elite", monospace;
+  font-size: .86rem;
+}
+
 #rescore-reader-v2 {
   margin-left: auto;
 }
@@ -2464,6 +2492,7 @@ footer {
   border: 1px solid rgba(126, 72, 25, .26);
 }
 
+.reader-v2-grid > article:nth-child(1),
 .reader-v2-grid > article:nth-child(2),
 .reader-v2-grid > article:nth-child(3) {
   grid-column: 1 / -1;

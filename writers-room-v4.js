@@ -171,9 +171,19 @@
     if (!reportContent || !report) return;
     const identification = report.propertyIdentification || {};
     const summary = report.sourceStorySummary || {};
+    const readerProfile = state.readerPacket?.readerProfile || state.property?.readerProfile || null;
+    const readerName = report.reader || state.property?.reader || "Scenario Reader";
     const score = normalizedScore(state.property?.suitabilityScore ?? report.suitabilityScore);
     const needsRescore = state.readerPacket?.scoreStatus === "needs_rescore" || score === null;
     reportContent.innerHTML = `
+      <article class="reader-identity-card">
+        <p class="eyebrow">Assigned Scenario Reader</p>
+        <h3>${html(readerName)}</h3>
+        ${readerProfile?.specialty ? `<strong>${html(readerProfile.specialty)}</strong>` : ""}
+        ${readerProfile?.biography ? `<p>${html(readerProfile.biography)}</p>` : ""}
+        ${readerProfile?.voice ? `<p class="reader-identity-card__voice">${html(readerProfile.voice)}</p>` : ""}
+        ${state.readerPacket?.assignmentRationale ? `<p class="reader-identity-card__assignment">${html(state.readerPacket.assignmentRationale)}</p>` : ""}
+      </article>
       <article class="reader-score-card ${score >= 7 ? "is-greenlight-eligible" : ""}">
         <p class="eyebrow">Photoplay Suitability</p>
         <strong>${score === null ? "Needs Rescore" : `${score}/10`}</strong>
@@ -831,7 +841,9 @@
           report: state.property.readerReport,
           decision: state.property.readerDecision,
           error: state.property.readerError || "",
-          scoreStatus: state.property.suitabilityScoreStatus || ""
+          scoreStatus: state.property.suitabilityScoreStatus || "",
+          readerProfile: state.property.readerProfile || null,
+          assignmentRationale: state.property.readerAssignmentRationale || ""
         }
       : null;
     const savedConference = state.property.conferenceJson ? JSON.parse(state.property.conferenceJson) : null;

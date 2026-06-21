@@ -2527,6 +2527,7 @@ function renderTreatmentDocument(file, treatment, authors, key) {
   if (treatmentReferenceGrid) {
     const finalImage = approved.pictorial?.finalImage || blueprint.finalImage || "";
     treatmentReferenceGrid.innerHTML = [
+      ["Scenario Reader", [file.reader || "", file.readerProfile?.specialty || ""].filter(Boolean).join(" - ")],
       ["Approved Theme", approved.theme?.proposition || blueprint.theme],
       ["Theme Production Law", approved.themeLaw?.themeSentence || ""],
       ["Approved Ending", approved.ending?.summary || blueprint.approvedEnding],
