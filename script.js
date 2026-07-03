@@ -312,28 +312,6 @@ function formatShortDate(value) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function updateHomeCurrentFile(properties) {
-  const strip = document.querySelector(".current-file-strip");
-  if (!strip || !Array.isArray(properties) || !properties.length) return;
-  const latest = properties[0] || {};
-  const title = strip.querySelector("strong");
-  const description = strip.querySelector("p");
-  const actions = strip.querySelector(".current-file-strip__actions");
-  const href = propertyHref(latest);
-  if (title) title.textContent = `${latest.propertyId || "SPC"} - ${latest.title || "Untitled Property"}`;
-  if (description) {
-    const score = formatSuitabilityScore(latest.suitabilityScore);
-    description.textContent = `Status: ${latest.status || latest.treatmentStatus || "On desk"}. Suitability: ${score}.`;
-  }
-  if (actions) {
-    actions.innerHTML = `
-      <a href="${escapeHtml(href)}">Continue File</a>
-      <a href="scenario-desk.html">Open Desk</a>
-      <a href="writers-room.html?mode=archive">View Archive</a>
-    `;
-  }
-}
-
 function isConferenceRepairProperty(property) {
   const status = lowerText(property && property.status);
   const verdict = lowerText(property && property.conferenceVerdict);
@@ -512,7 +490,7 @@ function renderScenarioDesk(properties) {
     const numericScore = normalizedSuitabilityScore(property.suitabilityScore);
     const score = formatSuitabilityScore(property.suitabilityScore);
     const summary = property.logline || property.readerSynopsis || property.notes || "No synopsis has been entered for this property yet.";
-    const idLine = property.propertyId ? `<p class="property-id">${escapeHtml(property.propertyId)}</p>` : "";
+    const propertyId = property.propertyId || "";
     const targetedWriterReturn = /writers room development/i.test(property.status || "") && savedCarstairs?.revisionTargetStage && savedCarstairs.revisionTargetStage !== "treatment";
     const targetedTreatmentReturn = /treatment ready/i.test(property.status || "") && savedCarstairs?.revisionTargetStage === "treatment";
     const collaborativeTreatmentReturn = /treatment revision ready/i.test(property.status || property.treatmentStatus || "");
@@ -530,25 +508,52 @@ function renderScenarioDesk(properties) {
     const isDevelopmentPaused = (/development paused/i.test(property.status || "") || isLegacyWriterWastebasket) && !/waste/i.test(property.carstairsVerdict || "");
     const isReaderArchive = /reader archive/i.test(property.status || "");
 
+    const openHref = propertyHref(property);
     const cardBody = `
         <div class="property-card__clip"></div>
-        <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
-        ${idLine}
-        <h3>${escapeHtml(property.title || "Untitled Property")}</h3>
-        <dl>
-          <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
-          <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
-          <dt>Score</dt><dd>${escapeHtml(score)}${numericScore >= 7 ? ` <span class="score-eligible-badge">Greenlight Eligible</span>` : ""}</dd>
-        </dl>
-        <p>${escapeHtml(summary)}</p>
-        <span class="button button--small">${escapeHtml(actionLabel)}</span>
+        <header class="property-card__front" role="button" tabindex="0" data-property-details-trigger aria-label="View details for ${escapeHtml(property.title || "this property")}">
+          <p class="stamp ${statusClass(stamp)}">${escapeHtml(stamp)}</p>
+          ${propertyId ? `<p class="property-id">${escapeHtml(propertyId)}</p>` : ""}
+          <h3>${escapeHtml(property.title || "Untitled Property")}</h3>
+        </header>
+        <div class="property-card__actions">
+          ${isDevelopmentPaused || isReaderArchive ? "" : `<a class="button button--small" href="${escapeHtml(openHref)}">${escapeHtml(actionLabel)}</a>`}
+          <button type="button" class="button button--small button--ghost property-card__details-toggle" data-property-details="${escapeHtml(propertyId || property.title || "")}" aria-expanded="false">View Details</button>
+        </div>
+        <section class="property-card__details" hidden>
+          <dl>
+            <dt>Nature</dt><dd>${escapeHtml(source)}</dd>
+            <dt>Reader</dt><dd>${escapeHtml(reader)}</dd>
+            <dt>Score</dt><dd>${escapeHtml(score)}${numericScore >= 7 ? ` <span class="score-eligible-badge">Greenlight Eligible</span>` : ""}</dd>
+          </dl>
+          <p>${escapeHtml(summary)}</p>
+        </section>
         ${isDevelopmentPaused ? `<button type="button" class="button button--small" data-restore-development="${escapeHtml(property.propertyId)}">Restore to Writers' Room</button>` : ""}
         ${isReaderArchive ? `<button type="button" class="button button--small" data-restore-reader="${escapeHtml(property.propertyId)}">Restore to Reader's Desk</button>` : ""}
     `;
-    return isDevelopmentPaused || isReaderArchive
-      ? `<article class="property-card ${index === 0 ? "property-card--active" : ""}">${cardBody}</article>`
-      : `<a class="property-card ${index === 0 ? "property-card--active" : ""}" href="${propertyHref(property)}">${cardBody}</a>`;
+    return `<article class="property-card property-card--desk ${index === 0 ? "property-card--active" : ""}">${cardBody}</article>`;
   }).join("");
+
+  board.querySelectorAll("[data-property-details]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const card = button.closest(".property-card");
+      const details = card?.querySelector(".property-card__details");
+      if (!details) return;
+      const opening = details.hidden;
+      details.hidden = !opening;
+      button.setAttribute("aria-expanded", String(opening));
+      button.textContent = opening ? "Hide Details" : "View Details";
+    });
+  });
+  board.querySelectorAll("[data-property-details-trigger]").forEach((trigger) => {
+    const toggle = () => trigger.closest(".property-card")?.querySelector("[data-property-details]")?.click();
+    trigger.addEventListener("click", toggle);
+    trigger.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      toggle();
+    });
+  });
 
   board.querySelectorAll("[data-restore-development]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -584,14 +589,6 @@ if (document.querySelector("#property-board")) {
       const status = document.querySelector("#desk-ledger-status");
       if (status) status.textContent = "The live ledger could not be reached. The desk is waiting for a fresh connection.";
     });
-}
-
-if (document.querySelector(".current-file-strip")) {
-  loadLedgerProperties()
-    .then((payload) => {
-      if (payload?.ok) updateHomeCurrentFile(payload.properties || []);
-    })
-    .catch(() => {});
 }
 
 function getManuscriptTextarea() {
