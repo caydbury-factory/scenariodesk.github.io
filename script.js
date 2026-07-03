@@ -33,6 +33,16 @@ const revealTargets = document.querySelectorAll(
   "main > section, .desk-sheet, .property-card, .dossier-sheet, .analysis-sheet, .letter-envelope, .reader-roster, .treatment-assignment, .official-treatment, .carstairs-desk, .carstairs-memo, .carstairs-verdict, .carstairs-rewrite, .carstairs-appeal, .rules-sheet, .source-shelf, .archive-stats > div, .selected-issue, .miner-desk, .report"
 );
 
+const primaryNav = document.querySelector(".nav");
+
+if (primaryNav) {
+  const updateNavState = () => {
+    primaryNav.classList.toggle("is-scrolled", window.scrollY > 16);
+  };
+  updateNavState();
+  window.addEventListener("scroll", updateNavState, { passive: true });
+}
+
 if ("IntersectionObserver" in window) {
   const revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
@@ -302,6 +312,28 @@ function formatShortDate(value) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function updateHomeCurrentFile(properties) {
+  const strip = document.querySelector(".current-file-strip");
+  if (!strip || !Array.isArray(properties) || !properties.length) return;
+  const latest = properties[0] || {};
+  const title = strip.querySelector("strong");
+  const description = strip.querySelector("p");
+  const actions = strip.querySelector(".current-file-strip__actions");
+  const href = propertyHref(latest);
+  if (title) title.textContent = `${latest.propertyId || "SPC"} - ${latest.title || "Untitled Property"}`;
+  if (description) {
+    const score = formatSuitabilityScore(latest.suitabilityScore);
+    description.textContent = `Status: ${latest.status || latest.treatmentStatus || "On desk"}. Suitability: ${score}.`;
+  }
+  if (actions) {
+    actions.innerHTML = `
+      <a href="${escapeHtml(href)}">Continue File</a>
+      <a href="scenario-desk.html">Open Desk</a>
+      <a href="writers-room.html?mode=archive">View Archive</a>
+    `;
+  }
+}
+
 function isConferenceRepairProperty(property) {
   const status = lowerText(property && property.status);
   const verdict = lowerText(property && property.conferenceVerdict);
@@ -552,6 +584,14 @@ if (document.querySelector("#property-board")) {
       const status = document.querySelector("#desk-ledger-status");
       if (status) status.textContent = "The live ledger could not be reached. The desk is waiting for a fresh connection.";
     });
+}
+
+if (document.querySelector(".current-file-strip")) {
+  loadLedgerProperties()
+    .then((payload) => {
+      if (payload?.ok) updateHomeCurrentFile(payload.properties || []);
+    })
+    .catch(() => {});
 }
 
 function getManuscriptTextarea() {

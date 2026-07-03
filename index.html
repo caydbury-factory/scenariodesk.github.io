@@ -24,31 +24,40 @@
 
     <header class="studio-hero">
       <div class="studio-hero__media" aria-hidden="true"></div>
+      <div class="studio-hero__beam" aria-hidden="true"></div>
       <div class="studio-hero__shade"></div>
       <section class="studio-hero__content" aria-labelledby="site-title">
         <p class="eyebrow">The Chocolate Box Photoplay Studios, MCMXXI</p>
         <h1 id="site-title">The Scenario Department</h1>
-        <p class="lede">
-          A fictional Golden Age Hollywood story-development studio where editors hunt through pulp
-          magazines, novels, serials, scandals, and original ideas for motion picture material.
-        </p>
+        <p class="hero-slogan">Story by Instinct. Picture by Design.</p>
+        <p class="lede">A Golden Age Hollywood story machine for forgotten novels, pulp fragments, public-domain properties, and raw dramatic ore.</p>
         <div class="hero__actions">
-          <a class="button" href="#departments">Review the Departments</a>
-          <a class="button button--ghost" href="submit-property.html">Submit a Property</a>
+          <a class="button" href="submit-property.html">Submit a Property</a>
+          <a class="button button--ghost" href="scenario-desk.html">Open the Scenario Desk</a>
+          <a class="button button--ghost" href="pulp-archives.html">Mine the Archives</a>
         </div>
       </section>
     </header>
 
     <main>
+      <section class="current-file-strip" aria-label="Current file status">
+        <div>
+          <span>Current File</span>
+          <strong>No property selected.</strong>
+        </div>
+        <p>Start by submitting a property or opening the Scenario Desk.</p>
+        <div class="current-file-strip__actions">
+          <a href="submit-property.html">Start File</a>
+          <a href="scenario-desk.html">Continue File</a>
+          <a href="writers-room.html?mode=archive">View Archive</a>
+        </div>
+      </section>
+
       <section class="studio-band intro-band" id="departments">
         <div class="section-head">
-          <p class="eyebrow">Inside the Lot</p>
-          <h2>Every good picture begins as a file on somebody's desk.</h2>
-          <p>
-            The department reads the country before the cameras ever roll. Editors clip columns,
-            debate serialized chapters, test premises against photoplay rules, and decide whether a
-            story has enough pressure, spectacle, romance, consequence, and screen sense to survive.
-          </p>
+          <p class="eyebrow">From Property to Picture</p>
+          <h2>No story reaches Carstairs by charm alone.</h2>
+          <p>Every property is tested for theme, pressure, sympathy, spectacle, and motion before it is allowed near a camera.</p>
         </div>
         <div class="department-grid">
           <a class="department-tile" href="pulp-archives.html">
@@ -71,13 +80,23 @@
             <h3>Treatment Room</h3>
             <p>Shape an approved premise into acts, turns, scenes, conflicts, and production promises.</p>
           </a>
+          <a class="department-tile" href="writers-room.html">
+            <span>05</span>
+            <h3>Writers' Room</h3>
+            <p>Turn raw dramatic material into theme, cast, scenes, visual sequences, and a treatment-ready blueprint.</p>
+          </a>
+          <a class="department-tile department-tile--carstairs" href="carstairs-office.html">
+            <span>06</span>
+            <h3>Carstairs' Office</h3>
+            <p>Request the final executive ruling: greenlight, production polish, revision, or the wastebasket.</p>
+          </a>
         </div>
       </section>
 
       <section class="studio-band slate-band" aria-labelledby="desk-title">
         <div class="two-column">
           <div>
-            <p class="eyebrow">Producer's Command Center</p>
+            <p class="eyebrow">Current Operations</p>
             <h2 id="desk-title">The Scenario Desk</h2>
             <p>
               Incoming properties are logged, argued over, stamped, reconferenced, and promoted. The
@@ -86,27 +105,27 @@
             <a class="button button--small" href="scenario-desk.html">Open the Desk</a>
           </div>
           <div class="ledger-card" aria-label="Current scenario desk totals">
-            <div><strong>17</strong><span>Active Properties</span></div>
-            <div><strong>06</strong><span>Treatments in Progress</span></div>
-            <div><strong>04</strong><span>Reconference Orders</span></div>
-            <div><strong>03</strong><span>Greenlit Pictures</span></div>
+            <div><strong>01</strong><span>Intake</span></div>
+            <div><strong>02</strong><span>Reader's Report</span></div>
+            <div><strong>03</strong><span>Writers' Room</span></div>
+            <div><strong>04</strong><span>Treatment</span></div>
           </div>
         </div>
       </section>
 
       <section class="studio-band process-band">
         <div class="section-head">
-          <p class="eyebrow">Development Pipeline</p>
+          <p class="eyebrow">Production Pipeline</p>
           <h2>From printed page to production order.</h2>
         </div>
         <ol class="process-list">
           <li>
-            <span>Read</span>
-            <p>Readers search for visible wants, clean conflicts, useful settings, and a protagonist worth filming.</p>
+            <span>Intake</span>
+            <p>Log title, source, premise, genre, promise, danger, and the one thing the department must not miss.</p>
           </li>
           <li>
-            <span>Mine</span>
-            <p>Promising material is broken into hooks, perils, reversals, attractions, and screenable business.</p>
+            <span>Report</span>
+            <p>Readers search for visible wants, clean conflicts, useful settings, and a protagonist worth filming.</p>
           </li>
           <li>
             <span>Conference</span>
@@ -115,6 +134,10 @@
           <li>
             <span>Treat</span>
             <p>The winning premise becomes a treatment with acts, set pieces, emotional stakes, and a verdict.</p>
+          </li>
+          <li>
+            <span>Verdict</span>
+            <p>Carstairs weighs money, stars, sets, costumes, and the final image the audience will carry home.</p>
           </li>
         </ol>
       </section>
@@ -130,7 +153,7 @@
           </p>
           <div class="final-verdicts">
             <span class="rubber rubber--green">Greenlight</span>
-            <span class="rubber">Reconference</span>
+            <span class="rubber rubber--amber">Revision</span>
             <span class="rubber rubber--red">Wastebasket</span>
           </div>
         </div>
@@ -151,7 +174,10 @@
       </section>
     </main>
 
-    <footer class="confidential-footer"><span>ALL PROPERTIES SUBMITTED TO THIS DEPARTMENT ARE CONFIDENTIAL — PROPERTY OF THE CHOCOLATE BOX PHOTOPLAY STUDIOS — MCMXXI</span></footer>
+    <footer class="confidential-footer studio-footer">
+      <span>CHOCOLATE BOX PHOTOPLAY STUDIOS - SCENARIO DEPARTMENT</span>
+      <span>Fictional Golden Age Hollywood story-development studio for public-domain properties, pulp fragments, forgotten novels, and dramatic experiments.</span>
+    </footer>
       <script src="script.js"></script>
   </body>
 </html>
