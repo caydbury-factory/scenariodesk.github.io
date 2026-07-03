@@ -33,7 +33,10 @@
     selectedArrangement: "",
     saving: false,
     autosaveTimer: null,
-    archiveStage: ""
+    archiveStage: "",
+    loading: false,
+    lastFiledAt: "",
+    lastAction: ""
   };
 
   const query = new URLSearchParams(window.location.search);
@@ -44,6 +47,7 @@
   const pendingSection = document.querySelector("#reader-v2-pending");
   const readerStatus = document.querySelector("#reader-v2-status");
   const workspace = document.querySelector("#writers-v4-workspace");
+  const loadingSection = document.querySelector("#writers-v4-loading");
   const active = document.querySelector("#writers-v4-active");
   const errorNode = document.querySelector("#writers-v4-error");
   const archiveBanner = document.querySelector("#writers-v4-archive-banner");
@@ -65,6 +69,57 @@
 
   function mutationId() {
     return window.crypto?.randomUUID?.() || `development-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function formatTime(value) {
+    const date = value ? new Date(value) : new Date();
+    if (Number.isNaN(date.getTime())) return String(value || "");
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  function currentStageLabel() {
+    const stage = archiveMode
+      ? (state.archiveStage || state.packet?.activeStage || "")
+      : (state.packet?.activeStage || "");
+    return STAGES.find(([key]) => key === stage)?.[1] || "No active stage";
+  }
+
+  function nextActionLabel() {
+    if (archiveMode) return "Review filed record";
+    if (state.loading) return "Drawing packet";
+    if (!state.property) return "Select a property";
+    if (!state.readerPacket?.report) return "Prepare Reader's Report";
+    if (state.readerPacket?.decision !== "send_to_writers") return "Choose Reader routing";
+    const stage = state.packet?.activeStage || "";
+    if (stage === "ready_for_treatment") return "Send to Treatment Room";
+    if (state.saving) return "Filing decision";
+    return "Continue current stage";
+  }
+
+  function updateStatusStrip(message = "") {
+    const propertyNode = document.querySelector("#studio-strip-property");
+    const stateNode = document.querySelector("#studio-strip-state");
+    const nextNode = document.querySelector("#studio-strip-next");
+    const savedNode = document.querySelector("#studio-strip-saved");
+    if (propertyNode) propertyNode.textContent = state.property
+      ? `${state.property.propertyId || "SPC"} - ${state.property.title || "Untitled"}`
+      : "No property selected";
+    if (stateNode) stateNode.textContent = message || (archiveMode ? "Filed Development Record" : currentStageLabel());
+    if (nextNode) nextNode.textContent = nextActionLabel();
+    if (savedNode) savedNode.textContent = state.lastFiledAt
+      ? `Filed ${formatTime(state.lastFiledAt)}`
+      : "Not filed this session";
+  }
+
+  function setLoading(isLoading, message = "Drawing packet from Drive...") {
+    state.loading = isLoading;
+    if (loadingSection) loadingSection.hidden = !isLoading;
+    if (isLoading) {
+      if (reportSection) reportSection.hidden = true;
+      if (pendingSection) pendingSection.hidden = true;
+      if (workspace) workspace.hidden = true;
+    }
+    updateStatusStrip(message);
   }
 
   function jsonp(action, params = {}, timeoutMs = 120000) {
@@ -119,20 +174,24 @@
 
   function setBusy(message) {
     state.saving = true;
+    state.lastAction = message || "Filing the development decision...";
     if (errorNode) errorNode.hidden = true;
     if (active) active.classList.add("is-filing");
     document.querySelectorAll("#writers-v4-workspace button").forEach((button) => { button.disabled = true; });
     const status = document.querySelector("#writers-v4-status");
     if (status) status.textContent = message;
+    updateStatusStrip("Saving...");
   }
 
   function clearBusy() {
     state.saving = false;
     if (active) active.classList.remove("is-filing");
     document.querySelectorAll("#writers-v4-workspace button").forEach((button) => { button.disabled = false; });
+    updateStatusStrip();
   }
 
   function showError(error) {
+    setLoading(false);
     clearBusy();
     if (!errorNode) return;
     errorNode.hidden = false;
@@ -143,6 +202,7 @@
     setBusy(message || "Filing the development decision...");
     try {
       state.packet = await postDevelopment(command, payload);
+      state.lastFiledAt = new Date().toISOString();
       renderWorkspace();
       clearBusy();
       return state.packet;
@@ -158,8 +218,11 @@
       const status = document.querySelector("#writers-v4-status");
       try {
         if (status) status.textContent = "Saving draft...";
+        updateStatusStrip("Saving draft...");
         state.packet = await postDevelopment(command, payloadFactory());
+        state.lastFiledAt = new Date().toISOString();
         if (status) status.textContent = "Draft saved.";
+        updateStatusStrip("Draft saved");
       } catch (error) {
         if (status) status.textContent = "Draft save failed.";
         showError(error);
@@ -266,6 +329,7 @@
     document.querySelector("#property-logline").textContent = property.logline || "No logline has been filed.";
     document.querySelector("#property-notes").innerHTML = `<strong>Submitter's Notes:</strong> ${html(property.notes || "No submitter notes have been filed.")}`;
     document.title = `${property.title || "Property"} | Writers' Room`;
+    updateStatusStrip();
   }
 
   function renderStageRail() {
@@ -358,6 +422,7 @@
     document.querySelector("#writers-v4-status").textContent = archiveMode
       ? "Filed Development Record"
       : (state.packet.statusLabel || stage.replace(/_/g, " "));
+    updateStatusStrip();
     if (archiveMode) {
       renderArchivedStage(stage);
       return;
@@ -786,14 +851,14 @@
     }
     const started = Date.now();
     while (Date.now() - started < 300000) {
-      const property = await loadPropertyPacket(propertyId, ["source", "reader"]);
+      const property = await loadPropertyPacket(propertyId, ["source", "reader"], true);
       if (String(property.status || "").toLowerCase() === "reader failed") {
         button.disabled = false;
         readerStatus.textContent = property.readerError || "The Reader could not complete this report.";
         throw new Error(readerStatus.textContent);
       }
       if (property.readerPacketVersion == 2 && property.readerReport) {
-        await loadProperty();
+        await loadProperty(true);
         return;
       }
       await new Promise((resolve) => window.setTimeout(resolve, 4000));
@@ -827,14 +892,17 @@
     }
   }
 
-  async function loadProperty() {
+  async function loadProperty(forceFresh = false) {
     if (!/^SPC-/i.test(propertyId)) {
       pendingSection.hidden = false;
       document.querySelector("#run-reader-v2").disabled = true;
       readerStatus.textContent = "Select a property from the desk.";
+      updateStatusStrip();
       return;
     }
-    state.property = await loadPropertyPacket(propertyId, ["source", "reader", "conference"]);
+    setLoading(true);
+    state.property = await loadPropertyPacket(propertyId, ["source", "reader", "conference"], forceFresh);
+    setLoading(false);
     state.readerPacket = state.property.readerPacketVersion == 2
       ? {
           packetVersion: 2,

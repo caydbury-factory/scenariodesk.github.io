@@ -34,6 +34,24 @@
           <h2 id="property-title">Select Property</h2>
           <p class="property-logline" id="property-logline">Choose a property currently in Reader or Writers' Room development.</p>
           <blockquote id="property-notes"><strong>Submitter's Notes:</strong> No property selected.</blockquote>
+          <section class="studio-status-strip" id="writers-v4-status-strip" aria-live="polite">
+            <div>
+              <span>Current File</span>
+              <strong id="studio-strip-property">No property selected</strong>
+            </div>
+            <div>
+              <span>Desk State</span>
+              <strong id="studio-strip-state">Awaiting selection</strong>
+            </div>
+            <div>
+              <span>Next Action</span>
+              <strong id="studio-strip-next">Select a property</strong>
+            </div>
+            <div>
+              <span>Last Filing</span>
+              <strong id="studio-strip-saved">Not filed this session</strong>
+            </div>
+          </section>
           <section class="room-property-picker" id="writers-room-property-picker">
             <p class="eyebrow">Select Property</p>
             <div class="room-property-tiles" id="writers-room-property-tiles"></div>
@@ -68,6 +86,16 @@
           <p>Steps 1-5 will identify the property, summarize the source story, list its original cast, mark its existing screen value, and record its adaptation obstacles.</p>
           <button type="button" id="run-reader-v2">Prepare the Reader's Report</button>
           <p class="scenario-reader-status" id="reader-v2-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="writers-v4-loading" id="writers-v4-loading" hidden>
+          <div class="studio-skeleton studio-skeleton--wide"></div>
+          <div class="studio-skeleton-grid">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p>The clerks are drawing the packet from the private Drive files...</p>
         </section>
 
         <section class="writers-v4-workspace" id="writers-v4-workspace" hidden>

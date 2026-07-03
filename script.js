@@ -141,6 +141,11 @@ const submissionForm = document.querySelector("#property-submission-form");
 const submissionStatus = document.querySelector("#submission-status");
 const submitPropertyButton = document.querySelector("#submit-property-button");
 const scenarioBackendUrl = "https://script.google.com/macros/s/AKfycbzwItYelXxPfcfxcB9Z0sSTnecphm7ibkLpMkX0zpjWF2LumeCbDqhEdt-OnkbSjKPezQ/exec";
+const scenarioSessionCache = window.scenarioSessionCache || (window.scenarioSessionCache = {
+  packets: new Map(),
+  ledger: null,
+  ledgerLoadedAt: 0
+});
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -153,6 +158,9 @@ function escapeHtml(value) {
 }
 
 function loadLedgerProperties() {
+  if (scenarioSessionCache.ledger && Date.now() - scenarioSessionCache.ledgerLoadedAt < 45000) {
+    return Promise.resolve(scenarioSessionCache.ledger);
+  }
   return new Promise((resolve, reject) => {
     const callbackName = `scenarioLedger_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement("script");
@@ -169,6 +177,10 @@ function loadLedgerProperties() {
 
     window[callbackName] = (payload) => {
       cleanup();
+      if (payload?.ok) {
+        scenarioSessionCache.ledger = payload;
+        scenarioSessionCache.ledgerLoadedAt = Date.now();
+      }
       resolve(payload);
     };
 
@@ -282,6 +294,12 @@ function normalizedSuitabilityScore(value) {
 function formatSuitabilityScore(value) {
   const score = normalizedSuitabilityScore(value);
   return score === null ? "Needs Rescore" : `${score}/10`;
+}
+
+function formatShortDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "");
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function isConferenceRepairProperty(property) {
@@ -398,14 +416,21 @@ function renderRoomPropertySelector(room, options) {
     return;
   }
 
-  tiles.innerHTML = eligible.map((property) => `
+  tiles.innerHTML = eligible.map((property) => {
+    const score = normalizedSuitabilityScore(property.suitabilityScore);
+    const statusText = property.status || property.treatmentStatus || property.carstairsVerdict || "On desk";
+    const updated = property.lastUpdated || property.submittedDate || "";
+    return `
     <button
       type="button"
       class="room-property-tile ${String(property.propertyId || "") === String(currentPropertyId || "") ? "is-active" : ""}"
       data-room-property-id="${escapeHtml(property.propertyId || "")}">
-      ${escapeHtml(property.title || "Untitled Property")}
+      <strong>${escapeHtml(property.title || "Untitled Property")}</strong>
+      <span>${escapeHtml(property.propertyId || "Unfiled")} · ${escapeHtml(statusText)}</span>
+      <small>${score === null ? "Score pending" : `${score}/10${score >= 7 ? " · Greenlight Eligible" : ""}`}${updated ? ` · ${escapeHtml(formatShortDate(updated))}` : ""}</small>
     </button>
-  `).join("");
+  `;
+  }).join("");
 
   tiles.querySelectorAll("[data-room-property-id]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -962,7 +987,10 @@ function normalizeConferenceDecision(value) {
   return "treatments";
 }
 
-function loadPropertyPacket(propertyId, sections = []) {
+function loadPropertyPacket(propertyId, sections = [], forceFresh = false) {
+  const cacheKey = `${String(propertyId || "").toLowerCase()}::${sections.slice().sort().join(",")}`;
+  const cached = scenarioSessionCache.packets.get(cacheKey);
+  if (!forceFresh && cached && Date.now() - cached.loadedAt < 60000) return Promise.resolve(cached.property);
   return new Promise((resolve, reject) => {
     const callbackName = `scenarioPropertyPacket_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script = document.createElement("script");
@@ -991,6 +1019,10 @@ function loadPropertyPacket(propertyId, sections = []) {
           .catch(reject);
         return;
       }
+      scenarioSessionCache.packets.set(cacheKey, {
+        property: payload.property,
+        loadedAt: Date.now()
+      });
       resolve(payload.property);
     };
     script.onerror = () => {
