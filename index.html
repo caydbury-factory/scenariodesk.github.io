@@ -1,16 +1,25 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="The Scenario Department is a fictional Golden Age Hollywood story-development studio for discovering, judging, and shaping motion picture material."
-    />
+    <meta name="description" content="The Scenario Department is a fictional Golden Age Hollywood story-development studio for discovering, judging, and shaping motion picture material." />
     <title>The Scenario Department</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="home-page">
+    <div class="film-intro" data-film-intro aria-label="Scenario Department opening sequence">
+      <button class="film-intro__skip" type="button" data-intro-skip>Skip intro</button>
+      <div class="film-intro__frame">
+        <p>Chocolate Box Photoplay Studios</p>
+        <div class="film-intro__count" data-intro-count>5</div>
+        <span>Scenario reel 001</span>
+      </div>
+      <div class="film-intro__flash" aria-hidden="true"></div>
+      <p class="film-intro__stamp">Property received</p>
+      <p class="film-intro__title">The Scenario Department</p>
+    </div>
+
     <nav class="nav home-nav" aria-label="Primary">
       <a class="current" href="index.html">Front Gate</a>
       <a href="scenario-desk.html">Scenario Desk</a>
@@ -29,142 +38,85 @@
       <section class="studio-hero__content" aria-labelledby="site-title">
         <p class="eyebrow">The Chocolate Box Photoplay Studios, MCMXXI</p>
         <h1 id="site-title">The Scenario Department</h1>
-        <p class="hero-slogan">Story by Instinct. Picture by Design.</p>
-        <p class="lede">A Golden Age Hollywood story machine for forgotten novels, pulp fragments, public-domain properties, and raw dramatic ore.</p>
+        <p class="hero-slogan">Story by instinct. Picture by design.</p>
+        <p class="lede">The studio lot where forgotten novels, pulp fragments, public-domain properties, and raw dramatic ore are made to prove themselves on the screen.</p>
         <div class="hero__actions">
           <a class="button" href="submit-property.html">Submit a Property</a>
+          <a class="button button--ghost" href="#current-file">View Current File</a>
           <a class="button button--ghost" href="scenario-desk.html">Open the Scenario Desk</a>
-          <a class="button button--ghost" href="pulp-archives.html">Mine the Archives</a>
         </div>
       </section>
     </header>
 
     <main>
-      <section class="studio-band intro-band" id="departments">
-        <div class="section-head">
-          <p class="eyebrow">From Property to Picture</p>
-          <h2>No story reaches the silver screen by charm alone.</h2>
-          <p>Every property is tested for theme, pressure, sympathy, spectacle, and motion before it is allowed near a camera.</p>
-        </div>
-        <div class="department-grid">
-          <a class="department-tile" href="pulp-archives.html">
-            <span>01</span>
-            <h3>Pulp Archives</h3>
-            <p>Browse magazine hooks, serial engines, strange crimes, frontier yarns, and society melodramas.</p>
-          </a>
-          <a class="department-tile" href="pulp-archives.html">
-            <span>02</span>
-            <h3>Magazine Mine</h3>
-            <p>Select an archive issue and turn its text into studio-readable prospects, risks, set pieces, and verdicts.</p>
-          </a>
-          <a class="department-tile" href="scenario-desk.html">
-            <span>03</span>
-            <h3>Scenario Desk</h3>
-            <p>Review submitted and mined properties on desk before opening a file in the Writers' Room.</p>
-          </a>
-          <a class="department-tile" href="treatment-room.html">
-            <span>04</span>
-            <h3>Treatment Room</h3>
-            <p>Shape an approved premise into acts, turns, scenes, conflicts, and production promises.</p>
-          </a>
-          <a class="department-tile" href="writers-room.html">
-            <span>05</span>
-            <h3>Writers' Room</h3>
-            <p>Turn raw dramatic material into theme, cast, scenes, visual sequences, and a treatment-ready blueprint.</p>
-          </a>
-          <a class="department-tile department-tile--carstairs" href="carstairs-office.html">
-            <span>06</span>
-            <h3>Carstairs' Office</h3>
-            <p>Request the final executive ruling: greenlight, production polish, revision, or the wastebasket.</p>
-          </a>
-        </div>
-      </section>
-
-      <section class="studio-band slate-band" aria-labelledby="desk-title">
-        <div class="two-column">
+      <section class="file-strip" id="current-file" aria-labelledby="current-file-title">
+        <p class="eyebrow">Current File Strip</p>
+        <div class="file-strip__content">
           <div>
-            <p class="eyebrow">Current Operations</p>
-            <h2 id="desk-title">The Scenario Desk</h2>
-            <p>
-              Incoming properties are logged, argued over, stamped, reconferenced, and promoted. The
-              desk is part literary office, part newsroom, part courtroom, and part studio machine.
-            </p>
-            <a class="button button--small" href="scenario-desk.html">Open the Desk</a>
+            <span class="file-strip__number">SCN-1921-001</span>
+            <h2 id="current-file-title">The House That Heard Everything</h2>
+            <p>A hotel switchboard operator overhears a confession that can save the man she loves and ruin the woman who owns the house.</p>
           </div>
-          <div class="ledger-card" aria-label="Current scenario desk totals">
-            <div><strong>01</strong><span>Intake</span></div>
-            <div><strong>02</strong><span>Reader's Report</span></div>
-            <div><strong>03</strong><span>Writers' Room</span></div>
-            <div><strong>04</strong><span>Treatment</span></div>
-          </div>
+          <div class="file-strip__status"><span>On desk</span><strong>Reader's Report</strong></div>
+          <a class="button button--small" href="scenario-desk.html">Open File</a>
         </div>
       </section>
 
-      <section class="studio-band process-band">
-        <div class="section-head">
-          <p class="eyebrow">Production Pipeline</p>
-          <h2>From printed page to production order.</h2>
-        </div>
-        <ol class="process-list">
-          <li>
-            <span>Intake</span>
-            <p>Log title, source, premise, genre, promise, danger, and the one thing the department must not miss.</p>
-          </li>
-          <li>
-            <span>Report</span>
-            <p>Readers search for visible wants, clean conflicts, useful settings, and a protagonist worth filming.</p>
-          </li>
-          <li>
-            <span>Conference</span>
-            <p>Story editors argue sympathy, morality, comedy, romance, spectacle, and commercial force.</p>
-          </li>
-          <li>
-            <span>Treat</span>
-            <p>The winning premise becomes a treatment with acts, set pieces, emotional stakes, and a verdict.</p>
-          </li>
-          <li>
-            <span>Verdict</span>
-            <p>Carstairs weighs money, stars, sets, costumes, and the final image the audience will carry home.</p>
-          </li>
+      <section class="studio-band pipeline-band" aria-labelledby="pipeline-title">
+        <div class="section-head"><p class="eyebrow">Production Pipeline</p><h2 id="pipeline-title">A story is not a picture until it survives the corridor.</h2></div>
+        <ol class="process-list" data-pipeline>
+          <li><span>Intake</span><p>Log the promise, danger, source, and one thing the department must not miss.</p></li>
+          <li><span>Reader's Report</span><p>Find the visible want, the photographic world, and the pressure on the central soul.</p></li>
+          <li><span>Writers' Conference</span><p>Put structure, feeling, society, morality, wit, and spectacle into argument.</p></li>
+          <li><span>Treatment</span><p>Turn the winning premise into acts, turns, scenes, and production promises.</p></li>
+          <li><span>Carstairs Verdict</span><p>Weigh stars, sets, consequence, and the final image the public will carry home.</p></li>
         </ol>
       </section>
 
-      <section class="studio-band office-band">
-        <div class="office-callout">
-          <p class="eyebrow">Carstairs' Office</p>
-          <h2>The final question is never about a story's literary merit. It is whether it demands to be seen.</h2>
-          <p>
-            A story may be elegant, clever, fashionable, or shocking. But the studio only buys what
-            can become action under pressure, emotion with consequence, and a final image the public
-            will carry home.
-          </p>
-          <div class="final-verdicts">
-            <span class="rubber rubber--green">Greenlight</span>
-            <span class="rubber rubber--amber">Revision</span>
-            <span class="rubber rubber--red">Wastebasket</span>
-          </div>
+      <section class="studio-band rooms-band" id="departments" aria-labelledby="rooms-title">
+        <div class="section-head"><p class="eyebrow">The Studio Lot</p><h2 id="rooms-title">Six rooms. No soft landings.</h2><p>Every door leads to a working department, not an ornament. Follow the property wherever the evidence leads.</p></div>
+        <div class="room-grid">
+          <article class="room-card"><p>Room 01</p><h3>Scenario Desk</h3><span>Log, read, and route incoming material.</span><a href="scenario-desk.html">Open Desk</a><div><b>Intake</b><b>Coverage</b><b>Routing</b></div></article>
+          <article class="room-card"><p>Room 02</p><h3>Pulp Archives</h3><span>Find a hook in the neglected stacks.</span><a href="pulp-archives.html">Browse Archives</a><div><b>Issues</b><b>Hooks</b><b>Sources</b></div></article>
+          <article class="room-card"><p>Room 03</p><h3>Magazine Miner</h3><span>Turn an issue into usable prospects.</span><a href="pulp-archives.html">Mine an Issue</a><div><b>OCR</b><b>Leads</b><b>Risks</b></div></article>
+          <article class="room-card"><p>Room 04</p><h3>Writers' Room</h3><span>Make the material argue for a screen life.</span><a href="writers-room.html">Call Conference</a><div><b>Theme</b><b>Cast</b><b>Scenes</b></div></article>
+          <article class="room-card"><p>Room 05</p><h3>Treatment Room</h3><span>File the picture before the picture exists.</span><a href="treatment-room.html">Prepare Treatment</a><div><b>Acts</b><b>Turns</b><b>Set Pieces</b></div></article>
+          <article class="room-card room-card--executive"><p>Room 06</p><h3>Carstairs' Office</h3><span>Receive the ruling and its consequences.</span><a href="carstairs-office.html">Go Upstairs</a><div><b>Greenlight</b><b>Revision</b><b>Bin</b></div></article>
         </div>
       </section>
 
-      <section class="studio-band submit-band">
-        <div class="two-column two-column--center">
-          <div>
-            <p class="eyebrow">Confidential Submission</p>
-            <h2>Have a property for the department?</h2>
-            <p>
-              Log the title, source, premise, genre, and the thing that makes the story impossible to
-              ignore. The department will decide whether it deserves conference, treatment, or the bin.
-            </p>
-          </div>
-          <a class="button" href="submit-property.html">Enter a New Property</a>
+      <section class="studio-band dossier-band" aria-labelledby="dossiers-title">
+        <div class="section-head"><p class="eyebrow">Photoplaywright Dossiers</p><h2 id="dossiers-title">The people who make the picture answer for itself.</h2></div>
+        <div class="dossier-grid">
+          <article class="dossier-card"><span>01</span><h3>Miss Marchmont</h3><p><b>Function:</b> Structure and reversals</p><p><b>Office:</b> Writers' Room</p><p><b>Danger:</b> A climax that can be talked through</p><button type="button" data-consult="Marchmont">Consult</button></article>
+          <article class="dossier-card"><span>02</span><h3>Miss Ashcombe</h3><p><b>Function:</b> Reputation and social pressure</p><p><b>Office:</b> Society desk</p><p><b>Danger:</b> A woman without power over the outcome</p><button type="button" data-consult="Ashcombe">Consult</button></article>
+          <article class="dossier-card"><span>03</span><h3>Miss Vane</h3><p><b>Function:</b> Wit and pace</p><p><b>Office:</b> Dialogue desk</p><p><b>Danger:</b> Solemnity mistaken for importance</p><button type="button" data-consult="Vane">Consult</button></article>
+          <article class="dossier-card"><span>04</span><h3>Miss Thorncroft</h3><p><b>Function:</b> Consequence and sacrifice</p><p><b>Office:</b> Moral drama</p><p><b>Danger:</b> A choice that costs nothing</p><button type="button" data-consult="Thorncroft">Consult</button></article>
+          <article class="dossier-card"><span>05</span><h3>Mr. Carrington</h3><p><b>Function:</b> Ethical conflict</p><p><b>Office:</b> Story conference</p><p><b>Danger:</b> A picture without a judgment</p><button type="button" data-consult="Carrington">Consult</button></article>
+          <article class="dossier-card"><span>06</span><h3>Miss Sterling</h3><p><b>Function:</b> Romance and sweep</p><p><b>Office:</b> Star office</p><p><b>Danger:</b> Love that decorates instead of drives</p><button type="button" data-consult="Sterling">Consult</button></article>
+          <article class="dossier-card"><span>07</span><h3>Theme Consultant</h3><p><b>Function:</b> The argument beneath the action</p><p><b>Office:</b> Conference table</p><p><b>Danger:</b> Spectacle without a soul</p><button type="button" data-consult="Theme">Consult</button></article>
+          <article class="dossier-card dossier-card--chief"><span>08</span><h3>R. X. Carstairs-D'Assine</h3><p><b>Function:</b> Final authority</p><p><b>Office:</b> Top floor</p><p><b>Danger:</b> Spending a dollar on a story that does not demand to be seen</p><button type="button" data-consult="Carstairs">Consult</button></article>
+        </div>
+        <aside class="consult-note" data-consult-note aria-live="polite"><p class="eyebrow">Consultation Memorandum</p><p>Select a dossier for a note from the department.</p></aside>
+      </section>
+
+      <section class="studio-band office-band office-band--interactive" aria-labelledby="office-title">
+        <div class="office-callout" data-carstairs-office>
+          <p class="eyebrow">Carstairs' Office, Top Floor</p><h2 id="office-title">The final question is whether it demands to be seen.</h2><p>A story may be elegant, clever, fashionable, or shocking. The studio buys action under pressure, feeling with consequence, and a final image no audience can mislay.</p>
+          <div class="verdict-controls" aria-label="Sample executive rulings"><button type="button" data-verdict="Greenlight">Greenlight</button><button type="button" data-verdict="Reconference">Reconference</button><button type="button" data-verdict="Revision">Revision</button><button type="button" data-verdict="Wastebasket">Wastebasket</button></div>
+          <p class="verdict-message" data-verdict-message aria-live="polite">Select a stamp to hear the executive position.</p>
+          <a class="button button--ghost" href="carstairs-office.html">Enter the Actual Office</a>
         </div>
       </section>
+
+      <section class="studio-band recent-band" aria-labelledby="recent-title">
+        <div class="section-head"><p class="eyebrow">Recent Files</p><h2 id="recent-title">Material moving through the department.</h2></div>
+        <div class="recent-files"><a href="scenario-desk.html"><span>SCN-1921-001</span><strong>The House That Heard Everything</strong><em>Reader's Report</em></a><a href="writers-room.html"><span>SCN-1921-002</span><strong>The Glass Menagerie</strong><em>Writers' Conference</em></a><a href="treatment-room.html"><span>SCN-1921-003</span><strong>Moon over the Marrow</strong><em>Treatment</em></a></div>
+      </section>
+
+      <section class="studio-band submit-band"><div class="two-column two-column--center"><div><p class="eyebrow">Confidential Submission</p><h2>Have a property for the department?</h2><p>Log its title, source, premise, and the thing that makes the story impossible to ignore. We will decide whether it deserves conference, treatment, or the bin.</p></div><a class="button" href="submit-property.html">Enter a New Property</a></div></section>
     </main>
-
-    <footer class="confidential-footer studio-footer">
-      <span>CHOCOLATE BOX PHOTOPLAY STUDIOS - SCENARIO DEPARTMENT</span>
-      <span>Fictional Golden Age Hollywood story-development studio for public-domain properties, pulp fragments, forgotten novels, and dramatic experiments.</span>
-    </footer>
-      <script src="script.js"></script>
+    <footer class="confidential-footer studio-footer"><span>Chocolate Box Photoplay Studios - Scenario Department</span><span>Fictional Golden Age Hollywood story-development studio for public-domain properties, pulp fragments, forgotten novels, and dramatic experiments.</span></footer>
+    <script src="script.js"></script>
   </body>
 </html>

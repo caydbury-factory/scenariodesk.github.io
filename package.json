@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 4173",
-    "build": "node --check script.js && node --check writers-room-v4.js && python3 - <<'PY'\nfrom pathlib import Path\nfor path in ['index.html','styles.css']:\n    text=Path(path).read_text()\n    assert text.strip(), f'{path} is empty'\nprint('static build checks passed')\nPY"
+    "start": "node tools/serve.mjs",
+    "build": "node tools/verify.mjs"
   }
 }

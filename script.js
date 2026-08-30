@@ -3789,3 +3789,92 @@ if (submitCarstairsAppeal) {
   });
 }
 
+const filmIntro = document.querySelector("[data-film-intro]");
+
+if (filmIntro) {
+  const count = filmIntro.querySelector("[data-intro-count]");
+  const skip = filmIntro.querySelector("[data-intro-skip]");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let finished = false;
+
+  const finishIntro = () => {
+    if (finished) return;
+    finished = true;
+    filmIntro.classList.add("is-complete");
+    window.setTimeout(() => filmIntro.remove(), 600);
+  };
+
+  if (reducedMotion) {
+    finishIntro();
+  } else {
+    [5, 4, 3, 2, 1].forEach((number, index) => {
+      window.setTimeout(() => {
+        if (count && !finished) count.textContent = number;
+      }, index * 430);
+    });
+    window.setTimeout(() => filmIntro.classList.add("is-stamped"), 2180);
+    window.setTimeout(() => filmIntro.classList.add("is-revealed"), 2480);
+    window.setTimeout(finishIntro, 3400);
+  }
+
+  skip?.addEventListener("click", finishIntro);
+}
+
+const pipeline = document.querySelector("[data-pipeline]");
+
+if (pipeline) {
+  if ("IntersectionObserver" in window) {
+    const pipelineObserver = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        pipeline.classList.add("is-visible");
+        pipelineObserver.disconnect();
+      }
+    }, { threshold: 0.2 });
+    pipelineObserver.observe(pipeline);
+  } else {
+    pipeline.classList.add("is-visible");
+  }
+}
+
+const consultantNotes = {
+  Marchmont: "Give the protagonist a visible want, a deadline, and a reversal no conversation can undo.",
+  Ashcombe: "Make reputation a pressure system. Let society deny her authority until it must publicly ask for it.",
+  Vane: "Wit belongs where pressure is greatest. Let comic cross-purposes make the danger sharper, not smaller.",
+  Thorncroft: "Count the cost. Without a sacrifice of name, safety, love, or inheritance, the climax has not earned its thunder.",
+  Carrington: "The decision must judge something. Arrange the final action so truth and loyalty cannot both be preserved.",
+  Sterling: "The romance should be inconvenient and consequential. Love must complicate the central action, then help resolve it.",
+  Theme: "Every set piece should reveal the argument beneath the story: what desire is worth, and what it costs to claim it.",
+  Carstairs: "Bring me a final image, a role a star would cross a continent to play, and a reason the public cannot look away."
+};
+
+const consultNote = document.querySelector("[data-consult-note]");
+
+document.querySelectorAll("[data-consult]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const name = button.closest(".dossier-card")?.querySelector("h3")?.textContent || "The Department";
+    const note = consultantNotes[button.dataset.consult] || "The department requests a clearer dramatic question.";
+    if (consultNote) {
+      consultNote.innerHTML = '<p class="eyebrow">Consultation Memorandum</p><h3></h3><p></p>';
+      consultNote.querySelector("h3").textContent = name;
+      consultNote.querySelector("p:last-child").textContent = note;
+    }
+  });
+});
+
+const verdictMessages = {
+  Greenlight: "GREENLIGHT: Give it stars, give it glass, and give the public an image to carry home.",
+  Reconference: "RECONFERENCE: The nucleus is promising. Return with a sharper engine and a costlier decision.",
+  Revision: "REVISION: The picture is on the page somewhere. Find it, make it visible, and bring it back upstairs.",
+  Wastebasket: "WASTEBASKET: File it without malice. The material has not yet proved itself a picture."
+};
+
+const verdictMessage = document.querySelector("[data-verdict-message]");
+const carstairsOffice = document.querySelector("[data-carstairs-office]");
+
+document.querySelectorAll("[data-verdict]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (verdictMessage) verdictMessage.textContent = verdictMessages[button.dataset.verdict] || "";
+    carstairsOffice?.classList.add("is-active");
+  });
+});
+
